@@ -1,0 +1,40 @@
+Metadata-Version: 2.4
+Name: ChimeraX-CiliaSim
+Version: 0.1.0
+Summary: Cilia Model Simulation
+Home-page: https://github.com/builab/CiliaSim
+Author: Bui lab@McGill
+Author-email: huy.bui@mcgill.ca
+Classifier: Framework :: ChimeraX
+Classifier: Intended Audience :: Science/Research
+Classifier: Programming Language :: Python :: 3
+Classifier: Topic :: Scientific/Engineering :: Visualization
+Classifier: Topic :: Scientific/Engineering :: Chemistry
+Classifier: Topic :: Scientific/Engineering :: Bio-Informatics
+Classifier: Development Status :: 3 - Alpha
+Classifier: License :: Freeware
+Classifier: Environment :: MacOS X :: Aqua
+Classifier: Environment :: Win32 (MS Windows)
+Classifier: Environment :: X11 Applications
+Classifier: Operating System :: MacOS :: MacOS X
+Classifier: Operating System :: Microsoft :: Windows :: Windows 10
+Classifier: Operating System :: POSIX :: Linux
+Classifier: ChimeraX :: Bundle :: EM, Structure Analysis :: 1,1 :: chimerax.ciliasim ::  :: 
+Classifier: ChimeraX :: Tool :: CiliaSim ::
+      Higher-Order Structure :: Simulate Cilia Structure
+Classifier: ChimeraX :: Command :: ciliasim :: General ::
+	Simulate Cilia Structure
+Requires-Python: >=3.7
+Requires-Dist: ChimeraX-Core>=1.1
+Requires-Dist: ChimeraX-UI>=1.1
+Requires-Dist: numpy
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: home-page
+Dynamic: requires-dist
+Dynamic: requires-python
+Dynamic: summary
+
+Implements CiliaSim ChimeraX as model or with ArtiaX.

@@ -1,0 +1,10 @@
+README.md
+ChimeraX_CiliaSim.egg-info/PKG-INFO
+ChimeraX_CiliaSim.egg-info/SOURCES.txt
+ChimeraX_CiliaSim.egg-info/dependency_links.txt
+ChimeraX_CiliaSim.egg-info/requires.txt
+ChimeraX_CiliaSim.egg-info/top_level.txt
+src/__init__.py
+src/cmd.py
+src/draw.py
+src/tool.py

@@ -1,3 +1,6 @@
+"""
+Draw tube for simulation
+"""
 import numpy as np
 from chimerax.core.models import Surface
 from chimerax.surface import calculate_vertex_normals
@@ -111,7 +114,7 @@ def create_tube_geometry(path_points, radius=10.0, segments=16, capped=True):
 
 
 def generate_tube_surface(session, path_points, radius=10.0, segments=16, 
-                         color=(255, 255, 0, 255), name="tube", capped=True):
+                         color=(255, 255, 0, 255), name="tube", capped=True, add_to_session=True):
     """
     Generate a tube surface model in ChimeraX.
     
@@ -131,6 +134,8 @@ def generate_tube_surface(session, path_points, radius=10.0, segments=16,
         Name of the surface model
     capped : bool
         Whether to add caps at the ends (default: True)
+    add_to_session : bool
+        Whether to add the surface to session immediately (default: True)
     """
     # Create geometry
     vertices, triangles = create_tube_geometry(path_points, radius, segments, capped)
@@ -146,8 +151,9 @@ def generate_tube_surface(session, path_points, radius=10.0, segments=16,
     color_array = np.array(color, dtype=np.uint8)
     surf.color = color_array
     
-    # Add to session
-    session.models.add([surf])
+    # Add to session if requested
+    if add_to_session:
+        session.models.add([surf])
     
     return surf
 
@@ -243,12 +249,14 @@ def shift_path_perpendicular(path_points, shift_distance, angle_degrees):
 COLOR_CENTER = (255, 255, 0, 255)
 COLOR_A_TUBULE = (255, 100, 100, 255)  # Reddish
 COLOR_B_TUBULE = (100, 100, 255, 255)  # Blueish
+COLOR_CP_TUBULE = (100, 255, 255, 255)  # Blueish
+
 NAME_CENTER = 'center'
 
 
-def drawmt(session, length=1500, interval=80, radius=125, name=NAME_CENTER, color=COLOR_CENTER):
+def draw_mt(session, length=1500, interval=80, radius=125, name=NAME_CENTER, color=COLOR_CENTER):
     """
-    Draw a single microtubule.
+    Draw a singlet microtubule.
     """
     # Calculate path points
     path_points = generate_centerline_points(length, interval, start_point=(0, 0, 0))
@@ -264,9 +272,9 @@ def drawmt(session, length=1500, interval=80, radius=125, name=NAME_CENTER, colo
     return tube
 
 
-def drawdoublet(session, length=3500, interval=80, angle=0, 
-                radius_a=125, radius_b=130, shift_distance=80,
-                length_diff=80,
+def draw_doublet(session, length=1500, interval=80, angle=0, 
+                radius_a=125, radius_b=130, shift_distance=70,
+                length_diff=5,
                 name="doublet", color_a=COLOR_A_TUBULE, color_b=COLOR_B_TUBULE):
     """
     Draw a microtubule doublet (A-tubule and B-tubule).
@@ -286,7 +294,7 @@ def drawdoublet(session, length=3500, interval=80, angle=0,
     radius_b : float
         Radius of B-tubule (default: 130)
     shift_distance : float
-        Distance between center and tubules (default: 100)
+        Distance between center and tubules (default: 70)
     length_diff : float
         Length difference: B-tubule will be shorter by this amount (default: 5)
     name : str
@@ -313,31 +321,59 @@ def drawdoublet(session, length=3500, interval=80, angle=0,
     # Generate B-tubule path (shifted by -shift_distance, opposite direction)
     path_b = shift_path_perpendicular(center_path_b, -shift_distance, angle)
     
-    # Create A-tubule
+    # Create list to hold surfaces
+    surfs = []
+    
+    # Create A-tubule (don't add to session yet)
     tube_a = generate_tube_surface(session, path_a,
                                    radius=radius_a,
                                    segments=32,
                                    color=color_a,
                                    name=f"{name}_A",
-                                   capped=True)
+                                   capped=True,
+                                   add_to_session=False)
+    surfs.append(tube_a)
     
-    # Create B-tubule
+    # Create B-tubule (don't add to session yet)
     tube_b = generate_tube_surface(session, path_b,
                                    radius=radius_b,
                                    segments=32,
                                    color=color_b,
                                    name=f"{name}_B",
-                                   capped=True)
+                                   capped=True,
+                                   add_to_session=False)
+    surfs.append(tube_b)
+    
+    # Add both as a group
+    session.models.add_group(surfs, name=name)
     
     session.logger.info(f"Created doublet \"{name}\" with A-tubule (length={length}, radius={radius_a}) and B-tubule (length={length - length_diff}, radius={radius_b})")
     
     return tube_a, tube_b
 
+def draw_cp(session, length=1500, interval=80, angle=0, 
+                radius_a=125, radius_b=125, shift_distance=200,
+                length_diff=0,
+                name="central_pair", color_a=COLOR_CP_TUBULE, color_b=COLOR_CP_TUBULE):
+    # Draw central pair but calling draw_doublet
+    cp_tubes = draw_doublet(session, 
+                           length=length, 
+                           interval=interval, 
+                           angle=angle, 
+                           radius_a=radius_a, 
+                           radius_b=radius_b, 
+                           shift_distance=shift_distance,
+                           length_diff=length_diff,
+                           name=name, 
+                           color_a=color_a, 
+                           color_b=color_b)
+                
+    return cp_tubes
 
 def register_command(logger):
     from chimerax.core.commands import CmdDesc, register, FloatArg, StringArg, Color8Arg
     
-    # Register drawmt command
+    # Register draw_mt command
     desc_mt = CmdDesc(
         keyword = [('length', FloatArg),
                    ('interval', FloatArg),
@@ -346,9 +382,9 @@ def register_command(logger):
                    ('color', Color8Arg)],
         synopsis = 'Draw single microtubule tube'
     )
-    register('drawmt', desc_mt, drawmt, logger=logger)
+    register('draw_mt', desc_mt, draw_mt, logger=logger)
     
-    # Register drawdoublet command
+    # Register draw_doublet command
     desc_doublet = CmdDesc(
         keyword = [('length', FloatArg),
                    ('interval', FloatArg),
@@ -360,14 +396,30 @@ def register_command(logger):
                    ('name', StringArg),
                    ('color_a', Color8Arg),
                    ('color_b', Color8Arg)],
-        synopsis = 'Draw microtubule doublet (A and B tubules)'
+        synopsis = 'Draw doublet (A and B tubules)'
     )
-    register('drawdoublet', desc_doublet, drawdoublet, logger=logger)
+    register('draw_doublet', desc_doublet, draw_doublet, logger=logger)
+    
+    # Register draw_cp command
+    desc_cp = CmdDesc(
+        keyword = [('length', FloatArg),
+                   ('interval', FloatArg),
+                   ('angle', FloatArg),
+                   ('radius_a', FloatArg),
+                   ('radius_b', FloatArg),
+                   ('shift_distance', FloatArg),
+                   ('length_diff', FloatArg),
+                   ('name', StringArg),
+                   ('color_a', Color8Arg),
+                   ('color_b', Color8Arg)],
+        synopsis = 'Draw cp (C1 and C2 tubules)'
+    )
+    register('draw_cp', desc_cp, draw_cp, logger=logger)
 
 
 # Register commands
-register_command(session.logger)
+#register_command(session.logger)
 
 # Example usage:
-# drawmt length 1500 interval 80 radius 125 name centerline
-# drawdoublet length 1500 interval 80 angle 45 radius_a 125 radius_b 130 length_diff 5 name mt_doublet
+# draw_mt length 1500 interval 80 radius 125 name centerline
+# draw_doublet length 1500 interval 80 angle 45 radius_a 125 radius_b 130 length_diff 5 name mt_doublet

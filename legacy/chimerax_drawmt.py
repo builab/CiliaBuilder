@@ -1,4 +1,5 @@
 # This script generate line at high-level by generating marker, then tube
+# Easy to understand but not so practical
 
 import numpy as np
 

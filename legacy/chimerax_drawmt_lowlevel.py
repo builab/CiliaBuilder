@@ -1,3 +1,4 @@
+# Starting point
 import numpy as np
 from chimerax.core.models import Surface
 from chimerax.surface import calculate_vertex_normals
