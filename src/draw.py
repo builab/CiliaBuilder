@@ -29,6 +29,12 @@ def create_tube_geometry(path_points, radius=10.0, segments=16, capped=True):
     """
     n_points = len(path_points)
     
+    # --- ERROR PREVENTION FIX ---
+    # Cannot draw a tube with fewer than 2 points. Return empty arrays gracefully.
+    if n_points < 2:
+        return np.empty((0, 3), dtype=np.float32), np.empty((0, 3), dtype=np.int32)
+    # ----------------------------
+
     # Create circle points around the path
     theta = np.linspace(0, 2*np.pi, segments, endpoint=False)
     circle_x = radius * np.cos(theta)
@@ -38,6 +44,7 @@ def create_tube_geometry(path_points, radius=10.0, segments=16, capped=True):
     
     # For each point along the path
     for i in range(n_points):
+        # Calculate tangent vector
         if i == 0:
             # Use next point for direction
             tangent = path_points[i+1] - path_points[i]
@@ -50,11 +57,13 @@ def create_tube_geometry(path_points, radius=10.0, segments=16, capped=True):
         
         tangent = tangent / np.linalg.norm(tangent)
         
-        # Create perpendicular vectors
-        if abs(tangent[2]) < 0.9:
-            up = np.array([0, 0, 1])
-        else:
-            up = np.array([1, 0, 0])
+        # --- Kink Fix: Use a stable reference vector (Y-axis) ---
+        up = np.array([0.0, 1.0, 0.0]) 
+        
+        # If the tangent is near parallel to 'up' (e.g., tangent is along Y-axis), choose X-axis instead
+        if np.linalg.norm(np.cross(tangent, up)) < 1e-6:
+             up = np.array([1.0, 0.0, 0.0])
+        # ---------------------------------------------------------
         
         normal = np.cross(tangent, up)
         normal = normal / np.linalg.norm(normal)
@@ -117,28 +126,14 @@ def generate_tube_surface(session, path_points, radius=10.0, segments=16,
                          color=(255, 255, 0, 255), name="tube", capped=True, add_to_session=True):
     """
     Generate a tube surface model in ChimeraX.
-    
-    Parameters:
-    -----------
-    session : chimerax.core.session.Session
-        ChimeraX session
-    path_points : numpy.ndarray
-        Array of shape (N, 3) containing the path points
-    radius : float
-        Radius of the tube
-    segments : int
-        Number of segments around circumference
-    color : tuple
-        RGBA color (0-255)
-    name : str
-        Name of the surface model
-    capped : bool
-        Whether to add caps at the ends (default: True)
-    add_to_session : bool
-        Whether to add the surface to session immediately (default: True)
     """
     # Create geometry
     vertices, triangles = create_tube_geometry(path_points, radius, segments, capped)
+    
+    # If geometry creation failed due to too few points, skip surface creation
+    if len(vertices) == 0:
+        session.logger.warning(f"Skipping surface creation for '{name}': Path must have at least 2 points.")
+        return None
     
     # Calculate normals
     normals = calculate_vertex_normals(vertices, triangles)
@@ -161,20 +156,6 @@ def generate_tube_surface(session, path_points, radius=10.0, segments=16,
 def generate_centerline_points(length=1500.0, interval=160, start_point=(0, 0, 0)):
     """
     Generate points along a straight center line in the Z direction.
-    
-    Parameters:
-    -----------
-    length : float
-        Total length of the center line (default: 1500.0)
-    interval : float
-        Distance between consecutive points (default: 160)
-    start_point : tuple
-        Starting point (x, y, z) coordinates (default: (0, 0, 0))
-    
-    Returns:
-    --------
-    points : numpy.ndarray
-        Array of shape (N, 3) containing the (x, y, z) coordinates
     """
     # Calculate number of points
     num_points = int(length / interval) + 1
@@ -196,19 +177,8 @@ def shift_path_perpendicular(path_points, shift_distance, angle_degrees):
     """
     Shift a path perpendicular to its axis by a given distance and angle.
     
-    Parameters:
-    -----------
-    path_points : numpy.ndarray
-        Array of shape (N, 3) containing the original path points
-    shift_distance : float
-        Distance to shift perpendicular to the path
-    angle_degrees : float
-        Angle in degrees to determine shift direction (0-360)
-    
-    Returns:
-    --------
-    shifted_points : numpy.ndarray
-        Array of shifted path points
+    This function uses a stable reference vector (Y-axis) to calculate the Normal/Binormal 
+    frame, which prevents sudden kinks/twists.
     """
     n_points = len(path_points)
     shifted_points = np.zeros_like(path_points)
@@ -227,12 +197,14 @@ def shift_path_perpendicular(path_points, shift_distance, angle_degrees):
         
         tangent = tangent / np.linalg.norm(tangent)
         
-        # Create perpendicular vectors
-        if abs(tangent[2]) < 0.9:
-            up = np.array([0, 0, 1])
-        else:
-            up = np.array([1, 0, 0])
+        # --- Kink Fix: Use a stable reference vector (Y-axis) ---
+        up = np.array([0.0, 1.0, 0.0]) 
         
+        # If the tangent is near parallel to 'up', choose X-axis instead
+        if np.linalg.norm(np.cross(tangent, up)) < 1e-6:
+             up = np.array([1.0, 0.0, 0.0])
+        # ---------------------------------------------------------
+
         normal = np.cross(tangent, up)
         normal = normal / np.linalg.norm(normal)
         binormal = np.cross(tangent, normal)
@@ -253,7 +225,8 @@ COLOR_CP_TUBULE = (100, 255, 255, 255)  # Cyanish
 
 
 def draw_tubules(session, 
-                 length=1500, 
+                 length=None,
+                 centerline_points=None,
                  interval=80, 
                  angle=0,
                  radii=None,
@@ -264,39 +237,11 @@ def draw_tubules(session,
                  group_name="tubules"):
     """
     Draw multiple tubules (doublet, triplet, etc.) shifted perpendicular to centerline.
-    
-    Parameters:
-    -----------
-    session : chimerax.core.session.Session
-        ChimeraX session
-    length : float
-        Base length for all tubules (default: 1500)
-    interval : float
-        Distance between path points (default: 80)
-    angle : float
-        Direction angle in degrees for shifting all tubules (default: 0)
-        This defines the perpendicular direction from the centerline
-    radii : list of float
-        Radius for each tubule. If None, uses [125, 130] for doublet or [125, 130, 135] for triplet
-    shift_distances : list of float
-        Distance from centerline for each tubule along the angle direction
-        Positive = shift in +angle direction, Negative = shift in opposite direction
-        (default: [+70, -70] for doublet meaning opposite sides)
-    length_diffs : list of float
-        Length adjustment for each tubule (+/- from base length). 
-        E.g., [0, -5, +10] means tubule1=length, tubule2=length-5, tubule3=length+10
-        (default: [0, -5] for doublet or [0, -5, -10] for triplet)
-    tubule_names : list of str
-        Name for each tubule (default: ["A", "B"] or ["A", "B", "C"])
-    colors : list of tuple
-        RGBA color for each tubule (default: preset colors)
-    group_name : str
-        Name for the group containing all tubules (default: "tubules")
-    
-    Returns:
-    --------
-    list : List of tube models
     """
+    
+    # Validate input: need either length or centerline_points
+    if length is None and centerline_points is None:
+        raise ValueError("Must provide either 'length' or 'centerline_points'")
     
     # Determine number of tubules from the first provided list parameter
     n_tubules = None
@@ -359,14 +304,33 @@ def draw_tubules(session,
     surfs = []
     
     for i in range(n_tubules):
-        # Calculate actual length for this tubule
-        tubule_length = length + length_diffs[i]
+        # Determine centerline for this tubule
+        center_path_to_shift = None
         
-        # Generate center line path for this tubule
-        center_path = generate_centerline_points(tubule_length, interval, start_point=(0, 0, 0))
+        if centerline_points is not None:
+            # --- FIX: Truncate the provided centerline based on length_diffs ---
+            center_path = centerline_points
+            
+            # This logic enables length_diffs when centerline_points is passed
+            if length is not None and length_diffs is not None:
+                tubule_length = length + length_diffs[i]
+                
+                # Calculate the number of points to keep based on the interval
+                # Ensure at least 2 points to avoid geometry errors
+                n_keep = max(2, int(np.round(tubule_length / interval)) + 1)
+
+                # Truncate the path to the correct length
+                center_path_to_shift = center_path[:n_keep]
+            else:
+                center_path_to_shift = center_path
+            # -----------------------------------------------------------------
+        else:
+            # Original logic: Calculate centerline from scratch (only used if centerline_points=None)
+            tubule_length = length + length_diffs[i]
+            center_path_to_shift = generate_centerline_points(tubule_length, interval, start_point=(0, 0, 0))
         
         # Shift the path perpendicular to axis using the single angle
-        path = shift_path_perpendicular(center_path, shift_distances[i], angle)
+        path = shift_path_perpendicular(center_path_to_shift, shift_distances[i], angle)
         
         # Create tubule surface
         tube = generate_tube_surface(session, path,
@@ -376,16 +340,26 @@ def draw_tubules(session,
                                      name=tubule_names[i],
                                      capped=True,
                                      add_to_session=False)
-        surfs.append(tube)
+        if tube is not None:
+            surfs.append(tube)
     
     # Add all as a group
-    session.models.add_group(surfs, name=group_name)
+    if surfs:
+        session.models.add_group(surfs, name=group_name)
     
     # Log information
-    info_lines = [f"Created {n_tubules}-tubule group \"{group_name}\" at angle {angle}°:"]
-    for i in range(n_tubules):
-        info_lines.append(f"  {tubule_names[i]}: length={length + length_diffs[i]}, "
-                         f"radius={radii[i]}, shift={shift_distances[i]:+.1f}")
+    if centerline_points is not None:
+        info_lines = [f"Created {len(surfs)}-tubule group \"{group_name}\" from centerline at angle {angle}°:"]
+    else:
+        info_lines = [f"Created {len(surfs)}-tubule group \"{group_name}\" at angle {angle}°:"]
+    
+    if surfs:
+        for i in range(len(surfs)):
+            if centerline_points is not None:
+                info_lines.append(f"  {tubule_names[i]}: radius={radii[i]}, shift={shift_distances[i]:+.1f}")
+            else:
+                info_lines.append(f"  {tubule_names[i]}: length={length + length_diffs[i]}, "
+                                 f"radius={radii[i]}, shift={shift_distances[i]:+.1f}")
     session.logger.info("\n".join(info_lines))
     
     return surfs
@@ -405,11 +379,12 @@ def draw_mt(session, length=1500, interval=80, radius=125, name="singlet", color
                                  color=color,
                                  name=name,
                                  capped=True)
-    session.logger.info(f"Created singlet \"{name}\" (length={length}, radius={radius})")
+    if tube is not None:
+        session.logger.info(f"Created singlet \"{name}\" (length={length}, radius={radius})")
     return tube
 
 
-def draw_doublet(session, length=3500, interval=80, angle=0, 
+def draw_doublet(session, length=1500, interval=80, angle=0, 
                 radius_a=125, radius_b=130, shift_distance=70,
                 length_diff=5,
                 name="doublet", color_a=COLOR_A_TUBULE, color_b=COLOR_B_TUBULE):
@@ -430,8 +405,8 @@ def draw_doublet(session, length=3500, interval=80, angle=0,
     )
 
 
-def draw_cp(session, length=3500, interval=80, angle=0, 
-            radius_a=125, radius_b=125, shift_distance=160,
+def draw_cp(session, length=1500, interval=80, angle=0, 
+            radius_a=125, radius_b=125, shift_distance=200,
             length_diff=0,
             name="central_pair", color_a=COLOR_CP_TUBULE, color_b=COLOR_CP_TUBULE):
     """
@@ -451,24 +426,19 @@ def draw_cp(session, length=3500, interval=80, angle=0,
     )
 
 
-def draw_triplet(session, length=3000, interval=80, angle=0,
+def draw_triplet(session, length=1500, interval=80, angle=0,
                 radii=None, shift_distances=None,
                 length_diffs=None,
                 name="triplet", colors=None):
     """
     Draw a microtubule triplet (A, B, C tubules).
-    
-    Default configuration:
-    - A-tubule: length=length, radius=125, shift=+70
-    - B-tubule: length=length-5, radius=130, shift=0 (center)
-    - C-tubule: length=length-10, radius=135, shift=-70
     """
     if radii is None:
-        radii = [125, 130, 130]
+        radii = [125, 130, 135]
     if shift_distances is None:
-        shift_distances = [140, 0, -140]
+        shift_distances = [70, 0, -70]
     if length_diffs is None:
-        length_diffs = [0, -5, -1000]
+        length_diffs = [0, -5, -10]
     if colors is None:
         colors = [COLOR_A_TUBULE, COLOR_B_TUBULE, COLOR_C_TUBULE]
     
@@ -507,7 +477,7 @@ draw_triplet(session, length=1500, angle=30)
 draw_tubules(session, 
             length=2000,
             angle=0,
-            radii=[125, 130, 130],
+            radii=[125, 130, 135],
             shift_distances=[80, 0, -80],  # One side, center, other side
             length_diffs=[0, 0, 0],  # All same length
             tubule_names=["MT1", "MT2", "MT3"],
