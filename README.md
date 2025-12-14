@@ -21,3 +21,7 @@ PROGRESS
 
 TODO
 - Make the centriolesim
+
+DONE
+- Curve and sinusoidal from same direction (Done)
+- Make the UI version

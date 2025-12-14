@@ -7,6 +7,7 @@ import numpy as np
 def generate_centerline_points(length=10.0, num_points=100, 
                                centerline_type='straight',
                                curve_radius=5.0, 
+                               # curve_angle removed
                                sine_frequency=2.0, sine_amplitude=2.0):
     """
     Generate centerline points for straight, curved, or sinusoidal paths.
@@ -21,6 +22,7 @@ def generate_centerline_points(length=10.0, num_points=100,
         Type of center line: 'straight', 'curve', or 'sinusoidal' (default: 'straight')
     curve_radius : float
         Radius of curvature for 'curve' type (default: 5.0)
+    # curve_angle removed: total angle is derived from length / curve_radius
     sine_frequency : float
         Frequency of sinusoidal oscillation (default: 2.0)
     sine_amplitude : float
@@ -44,17 +46,19 @@ def generate_centerline_points(length=10.0, num_points=100,
         
     elif centerline_type == 'curve':
         # Curved arc in the x-z plane
-        # Calculate total angle (in radians) from arc length (length) and radius: s = R * theta
+        # Calculate total angle (in radians) from arc length (length) and radius
+        # s = R * theta => theta = s / R
         if curve_radius == 0:
              raise ValueError("curve_radius cannot be zero for 'curve' type.")
         total_angle_rad = length / curve_radius
         
         # theta parameter goes from 0 to total_angle_rad
+        # This defines the angle of the arc in the XZ plane.
         theta = (t / length) * total_angle_rad
         
-        x_center = curve_radius * np.sin(theta)
+        x_center = curve_radius * (1 - np.cos(theta))  # Displacement in X
         y_center = np.zeros(num_points)
-        z_center = curve_radius * (1 - np.cos(theta))
+        z_center = curve_radius * np.sin(theta)
         
     elif centerline_type == 'sinusoidal':
         # Planar sinusoidal curve in the x-z plane
@@ -73,27 +77,55 @@ def generate_centerline_points(length=10.0, num_points=100,
 
 def calculate_doublet_positions(centerline_points, doublet_index, 
                                 total_doublets=9, cilia_radius=190.0):
-    """
-    Calculate the position offset for a doublet microtubule around the cilia perimeter.
-    """
+# ... (function remains the same)
     # Calculate angle for this doublet (evenly distributed around 360°)
     angle = (360.0 / total_doublets) * doublet_index
     
     return angle, cilia_radius
 
 
-def generate_cilia_structure(length=5000.0,
+def generate_cilia_structure(length=5000.0, 
+                             # num_points argument removed from here
                              centerline_type='straight',
                              curve_radius=5000.0, 
+                             # curve_angle removed
                              sine_frequency=2.0, sine_amplitude=500.0,
                              num_doublets=9, cilia_radius=190.0):
     """
     Generate complete cilia structure with centerline and doublet positions.
+    
+    Parameters:
+    -----------
+    length : float
+        Length of the cilia (arc length for 'curve') (default: 5000.0 Angstroms)
+    # num_points is now calculated internally for optimal smoothness
+    centerline_type : str
+        Type of centerline: 'straight', 'curve', or 'sinusoidal' (default: 'straight')
+    curve_radius : float
+        Radius of curvature for 'curve' type (default: 5000.0)
+    # curve_angle removed
+    sine_frequency : float
+        Frequency of sinusoidal oscillation (default: 2.0)
+    sine_amplitude : float
+        Amplitude of sinusoidal oscillation (default: 500.0)
+    num_doublets : int
+        Number of doublet microtubules around perimeter (default: 9)
+    cilia_radius : float
+        Radius from center to doublets (default: 190.0 Angstroms)
+    
+    Returns:
+    --------
+    structure : dict
+        Dictionary containing:
+        - 'centerline': centerline points for central pair
+        - 'doublets': list of (angle, shift_distance) for each doublet
+        - 'num_doublets': number of doublets
+        - 'centerline_type': type of centerline used
     """
     
     # === CRUCIAL CHANGE FOR SMOOTHNESS ===
     # Set a maximum interval between points (e.g., 10 Angstroms) 
-    # to ensure high-density sampling for smooth curves and stable tangents.
+    # to ensure high-density sampling for smooth curves.
     MAX_INTERVAL = 10.0 
     num_points = int(length / MAX_INTERVAL) + 1
     # ====================================
@@ -101,12 +133,15 @@ def generate_cilia_structure(length=5000.0,
     # Generate centerline for central pair
     centerline = generate_centerline_points(
         length=length,
-        num_points=num_points,
+        num_points=num_points, # Use the high-density number
         centerline_type=centerline_type,
         curve_radius=curve_radius,
+        # curve_angle removed
         sine_frequency=sine_frequency,
         sine_amplitude=sine_amplitude
     )
+    
+    # ... (Rest of the function remains the same)
     
     # Calculate positions for each doublet
     doublets = []
@@ -134,11 +169,23 @@ def generate_cilia_structure(length=5000.0,
 
 
 def get_doublet_centerline(cilia_centerline, angle, shift_distance):
+# ... (function remains the same as high-density points should resolve tangent issues)
     """
     Calculate the centerline for a doublet microtubule by shifting the cilia centerline.
     
-    This function uses a stable reference vector (Y-axis) to calculate the Normal/Binormal 
-    frame, which fixes the sudden kinks/twists in the geometry.
+    Parameters:
+    -----------
+    cilia_centerline : numpy.ndarray
+        Main cilia centerline points (N, 3)
+    angle : float
+        Angle in degrees for the doublet position
+    shift_distance : float
+        Radial distance from the cilia centerline
+    
+    Returns:
+    --------
+    doublet_centerline : numpy.ndarray
+        Shifted centerline points for the doublet (N, 3)
     """
     n_points = len(cilia_centerline)
     doublet_centerline = np.zeros_like(cilia_centerline)
@@ -159,9 +206,11 @@ def get_doublet_centerline(cilia_centerline, angle, shift_distance):
         
         # --- Kink Fix: Use a stable reference vector (Y-axis) ---
         # Since the curve is planar in XZ, the Y-axis (0, 1, 0) is a stable perpendicular reference.
+        # This prevents the abrupt flip when the Z-component of the tangent changes.
         up = np.array([0.0, 1.0, 0.0]) 
         
-        # If the tangent is near parallel to 'up' (e.g., tangent is along Y-axis), choose X-axis instead
+        # Ensure 'up' is not parallel to the tangent (only happens if tangent is also (0,1,0))
+        # If the tangent is close to (0,1,0), choose a different reference, e.g., (1,0,0)
         if np.linalg.norm(np.cross(tangent, up)) < 1e-6:
              up = np.array([1.0, 0.0, 0.0])
         # ---------------------------------------------------------
@@ -197,13 +246,8 @@ if __name__ == "__main__":
     print(f"Centerline type: {structure['centerline_type']}")
     print(f"Centerline points shape: {structure['centerline'].shape}")
     print(f"Number of doublets: {structure['num_doublets']}")
-    print(f"Cilia radius: {structure['cilia_radius']}")
-    print("\nDoublet positions:")
-    for doublet in structure['doublets']:
-        print(f"  {doublet['name']}: angle={doublet['angle']:.1f}°, "
-              f"shift={doublet['shift_distance']:.1f}Å")
     
-    # Generate curved cilia structure
+    # Generate curved cilia structure (using length as arc length)
     print("\n2. Generating CURVED cilia structure...")
     structure_curved = generate_cilia_structure(
         length=5000.0, # Arc length = 5000
@@ -215,7 +259,6 @@ if __name__ == "__main__":
     
     print(f"Centerline type: {structure_curved['centerline_type']}")
     print(f"Curve radius: 10000.0 Å")
-    # Total angle in radians = 5000 / 10000 = 0.5 rad
     print(f"Calculated Total Angle (approx): {np.degrees(structure_curved['length'] / 10000.0):.2f}°")
     
     # Generate sinusoidal cilia structure
@@ -230,19 +273,5 @@ if __name__ == "__main__":
     )
     
     print(f"Centerline type: {structure_sine['centerline_type']}")
-    print(f"Sine frequency: 3.0")
-    print(f"Sine amplitude: 500.0 Å")
-    
-    # Example: Get specific doublet centerline
-    print("\n4. Calculating specific doublet centerline...")
-    doublet_0 = structure['doublets'][0]
-    doublet_centerline = get_doublet_centerline(
-        structure['centerline'],
-        doublet_0['angle'],
-        doublet_0['shift_distance']
-    )
-    print(f"Doublet 0 centerline shape: {doublet_centerline.shape}")
-    print(f"First point: {doublet_centerline[0]}")
-    print(f"Last point: {doublet_centerline[-1]}")
     
     print("\n" + "=" * 60)

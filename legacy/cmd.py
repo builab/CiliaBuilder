@@ -7,10 +7,9 @@ from .draw import draw_tubules
 
 # Define the optimal sampling interval for smoothness (must match curve.py)
 MAX_INTERVAL = 10.0 # 10 Angstroms interval for centerline points
-CILIA_OFFSET_ANGLE = 90.0 # Offset angle for cilia
 
 def ciliasim(session, 
-            length=15000, 
+            length=5000, 
             line='straight', # Simplified from centerline_type
             curve_radius=10000.0, 
             sine_frequency=2.0, sine_amplitude=500.0,
@@ -115,7 +114,7 @@ def ciliasim(session,
             length=length, # Pass the original nominal length
             interval=MAX_INTERVAL, # Pass the sampling interval
             centerline_points=doublet_centerline,
-            angle=doublet_info['angle'] + CILIA_OFFSET_ANGLE,  # Orientation of A-B pair
+            angle=doublet_info['angle'] + 90,  # Orientation of A-B pair
             radii=[doublet_a_radius, doublet_b_radius], # Use arguments
             shift_distances=[-doublet_shift, doublet_shift], # Use argument, B is usually shifted "outward" 
             length_diffs=[0.0, -doublet_length_diff], # Use argument
@@ -154,5 +153,4 @@ ciliasim_desc = CmdDesc(
     ],
     synopsis='Generate complete cilia structure with customizable geometry'
 )
-
 
