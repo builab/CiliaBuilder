@@ -6,6 +6,8 @@ from chimerax.core.commands import StringArg
 
 from .draw import draw_doublet
 from .draw import draw_cp
+from .draw import draw_triplet
+
 
 def ciliasim(session, length=3500):
     # All command functions are invoked with ``session`` as its
@@ -13,7 +15,10 @@ def ciliasim(session, length=3500):
     #   logger: chimerax.core.logger.Logger instance
     #   models: chimerax.core.models.Models instance
     draw_doublet(session, length=length)
+    
     draw_cp(session, length=length)
+    
+    draw_triplet(session, length=length)
 
     session.logger.info("Cilia model generated!")
 

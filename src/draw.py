@@ -1,5 +1,5 @@
 """
-Draw tube for simulation
+General function to draw multiple tubules (doublet or triplet)
 """
 import numpy as np
 from chimerax.core.models import Surface
@@ -246,19 +246,156 @@ def shift_path_perpendicular(path_points, shift_distance, angle_degrees):
     return shifted_points
 
 
-COLOR_CENTER = (255, 255, 0, 255)
 COLOR_A_TUBULE = (255, 100, 100, 255)  # Reddish
 COLOR_B_TUBULE = (100, 100, 255, 255)  # Blueish
-COLOR_CP_TUBULE = (100, 255, 255, 255)  # Blueish
+COLOR_C_TUBULE = (100, 255, 100, 255)  # Greenish
+COLOR_CP_TUBULE = (100, 255, 255, 255)  # Cyanish
 
-NAME_CENTER = 'center'
 
-
-def draw_mt(session, length=1500, interval=80, radius=125, name=NAME_CENTER, color=COLOR_CENTER):
+def draw_tubules(session, 
+                 length=1500, 
+                 interval=80, 
+                 angle=0,
+                 radii=None,
+                 shift_distances=None,
+                 length_diffs=None,
+                 tubule_names=None,
+                 colors=None,
+                 group_name="tubules"):
     """
-    Draw a singlet microtubule.
+    Draw multiple tubules (doublet, triplet, etc.) shifted perpendicular to centerline.
+    
+    Parameters:
+    -----------
+    session : chimerax.core.session.Session
+        ChimeraX session
+    length : float
+        Base length for all tubules (default: 1500)
+    interval : float
+        Distance between path points (default: 80)
+    angle : float
+        Direction angle in degrees for shifting all tubules (default: 0)
+        This defines the perpendicular direction from the centerline
+    radii : list of float
+        Radius for each tubule. If None, uses [125, 130] for doublet or [125, 130, 135] for triplet
+    shift_distances : list of float
+        Distance from centerline for each tubule along the angle direction
+        Positive = shift in +angle direction, Negative = shift in opposite direction
+        (default: [+70, -70] for doublet meaning opposite sides)
+    length_diffs : list of float
+        Length adjustment for each tubule (+/- from base length). 
+        E.g., [0, -5, +10] means tubule1=length, tubule2=length-5, tubule3=length+10
+        (default: [0, -5] for doublet or [0, -5, -10] for triplet)
+    tubule_names : list of str
+        Name for each tubule (default: ["A", "B"] or ["A", "B", "C"])
+    colors : list of tuple
+        RGBA color for each tubule (default: preset colors)
+    group_name : str
+        Name for the group containing all tubules (default: "tubules")
+    
+    Returns:
+    --------
+    list : List of tube models
     """
-    # Calculate path points
+    
+    # Determine number of tubules from the first provided list parameter
+    n_tubules = None
+    for param in [radii, shift_distances, length_diffs, tubule_names, colors]:
+        if param is not None:
+            n_tubules = len(param)
+            break
+    
+    # Default to doublet (2 tubules) if nothing specified
+    if n_tubules is None:
+        n_tubules = 2
+    
+    # Set defaults for all parameters
+    if radii is None:
+        if n_tubules == 2:
+            radii = [125, 130]
+        elif n_tubules == 3:
+            radii = [125, 130, 135]
+        else:
+            radii = [125 + i*5 for i in range(n_tubules)]
+    
+    if shift_distances is None:
+        if n_tubules == 2:
+            shift_distances = [70, -70]  # Opposite sides
+        elif n_tubules == 3:
+            shift_distances = [70, 0, -70]  # Spread across
+        else:
+            # Distribute symmetrically around center
+            shift_distances = [70 - (140 / (n_tubules - 1)) * i for i in range(n_tubules)]
+    
+    if length_diffs is None:
+        if n_tubules == 2:
+            length_diffs = [0, -5]
+        elif n_tubules == 3:
+            length_diffs = [0, -5, -10]
+        else:
+            length_diffs = [-i*5 for i in range(n_tubules)]
+    
+    if tubule_names is None:
+        default_names = ["A", "B", "C", "D", "E", "F", "G", "H", "I"]
+        tubule_names = default_names[:n_tubules]
+    
+    if colors is None:
+        default_colors = [
+            COLOR_A_TUBULE,   # Red
+            COLOR_B_TUBULE,   # Blue
+            COLOR_C_TUBULE,   # Green
+            (255, 255, 100, 255),  # Yellow
+            (255, 100, 255, 255),  # Magenta
+            (100, 255, 255, 255),  # Cyan
+        ]
+        colors = default_colors[:n_tubules]
+    
+    # Validate all lists have the same length
+    if not all(len(lst) == n_tubules for lst in [radii, shift_distances, 
+                                                   length_diffs, tubule_names, colors]):
+        raise ValueError(f"All parameter lists must have length {n_tubules}")
+    
+    # Create tubules
+    surfs = []
+    
+    for i in range(n_tubules):
+        # Calculate actual length for this tubule
+        tubule_length = length + length_diffs[i]
+        
+        # Generate center line path for this tubule
+        center_path = generate_centerline_points(tubule_length, interval, start_point=(0, 0, 0))
+        
+        # Shift the path perpendicular to axis using the single angle
+        path = shift_path_perpendicular(center_path, shift_distances[i], angle)
+        
+        # Create tubule surface
+        tube = generate_tube_surface(session, path,
+                                     radius=radii[i],
+                                     segments=32,
+                                     color=colors[i],
+                                     name=tubule_names[i],
+                                     capped=True,
+                                     add_to_session=False)
+        surfs.append(tube)
+    
+    # Add all as a group
+    session.models.add_group(surfs, name=group_name)
+    
+    # Log information
+    info_lines = [f"Created {n_tubules}-tubule group \"{group_name}\" at angle {angle}°:"]
+    for i in range(n_tubules):
+        info_lines.append(f"  {tubule_names[i]}: length={length + length_diffs[i]}, "
+                         f"radius={radii[i]}, shift={shift_distances[i]:+.1f}")
+    session.logger.info("\n".join(info_lines))
+    
+    return surfs
+
+
+def draw_mt(session, length=1500, interval=80, radius=125, name="singlet", color=COLOR_A_TUBULE):
+    """
+    Draw a single microtubule (singlet) along the centerline.
+    """
+    # Calculate path points along centerline (no shift)
     path_points = generate_centerline_points(length, interval, start_point=(0, 0, 0))
     
     # Create tube
@@ -268,158 +405,129 @@ def draw_mt(session, length=1500, interval=80, radius=125, name=NAME_CENTER, col
                                  color=color,
                                  name=name,
                                  capped=True)
-    session.logger.info(f"Created tube \"{name}\"")
+    session.logger.info(f"Created singlet \"{name}\" (length={length}, radius={radius})")
     return tube
 
 
-def draw_doublet(session, length=1500, interval=80, angle=0, 
+def draw_doublet(session, length=3500, interval=80, angle=0, 
                 radius_a=125, radius_b=130, shift_distance=70,
                 length_diff=5,
                 name="doublet", color_a=COLOR_A_TUBULE, color_b=COLOR_B_TUBULE):
     """
-    Draw a microtubule doublet (A-tubule and B-tubule).
-    
-    Parameters:
-    -----------
-    session : chimerax.core.session.Session
-        ChimeraX session
-    length : float
-        Length of the A-tubule (default: 1500)
-    interval : float
-        Distance between path points (default: 80)
-    angle : float
-        Angle in degrees for doublet orientation (default: 0)
-    radius_a : float
-        Radius of A-tubule (default: 125)
-    radius_b : float
-        Radius of B-tubule (default: 130)
-    shift_distance : float
-        Distance between center and tubules (default: 70)
-    length_diff : float
-        Length difference: B-tubule will be shorter by this amount (default: 5)
-    name : str
-        Base name for the doublet (default: "doublet")
-    color_a : tuple
-        RGBA color for A-tubule (default: reddish)
-    color_b : tuple
-        RGBA color for B-tubule (default: blueish)
-    
-    Returns:
-    --------
-    tuple : (tube_a, tube_b)
-        The two tube models
+    Draw a microtubule doublet (convenience wrapper for draw_tubules).
     """
-    # Generate center line path for A-tubule
-    center_path_a = generate_centerline_points(length, interval, start_point=(0, 0, 0))
-    
-    # Generate center line path for B-tubule (shorter)
-    center_path_b = generate_centerline_points(length - length_diff, interval, start_point=(0, 0, 0))
-    
-    # Generate A-tubule path (shifted by +shift_distance)
-    path_a = shift_path_perpendicular(center_path_a, shift_distance, angle)
-    
-    # Generate B-tubule path (shifted by -shift_distance, opposite direction)
-    path_b = shift_path_perpendicular(center_path_b, -shift_distance, angle)
-    
-    # Create list to hold surfaces
-    surfs = []
-    
-    # Create A-tubule (don't add to session yet)
-    tube_a = generate_tube_surface(session, path_a,
-                                   radius=radius_a,
-                                   segments=32,
-                                   color=color_a,
-                                   name=f"{name}_A",
-                                   capped=True,
-                                   add_to_session=False)
-    surfs.append(tube_a)
-    
-    # Create B-tubule (don't add to session yet)
-    tube_b = generate_tube_surface(session, path_b,
-                                   radius=radius_b,
-                                   segments=32,
-                                   color=color_b,
-                                   name=f"{name}_B",
-                                   capped=True,
-                                   add_to_session=False)
-    surfs.append(tube_b)
-    
-    # Add both as a group
-    session.models.add_group(surfs, name=name)
-    
-    session.logger.info(f"Created doublet \"{name}\" with A-tubule (length={length}, radius={radius_a}) and B-tubule (length={length - length_diff}, radius={radius_b})")
-    
-    return tube_a, tube_b
-
-def draw_cp(session, length=1500, interval=80, angle=0, 
-                radius_a=125, radius_b=125, shift_distance=200,
-                length_diff=0,
-                name="central_pair", color_a=COLOR_CP_TUBULE, color_b=COLOR_CP_TUBULE):
-    # Draw central pair but calling draw_doublet
-    cp_tubes = draw_doublet(session, 
-                           length=length, 
-                           interval=interval, 
-                           angle=angle, 
-                           radius_a=radius_a, 
-                           radius_b=radius_b, 
-                           shift_distance=shift_distance,
-                           length_diff=length_diff,
-                           name=name, 
-                           color_a=color_a, 
-                           color_b=color_b)
-                
-    return cp_tubes
-
-def register_command(logger):
-    from chimerax.core.commands import CmdDesc, register, FloatArg, StringArg, Color8Arg
-    
-    # Register draw_mt command
-    desc_mt = CmdDesc(
-        keyword = [('length', FloatArg),
-                   ('interval', FloatArg),
-                   ('radius', FloatArg),
-                   ('name', StringArg),
-                   ('color', Color8Arg)],
-        synopsis = 'Draw single microtubule tube'
+    return draw_tubules(
+        session=session,
+        length=length,
+        interval=interval,
+        angle=angle,
+        radii=[radius_a, radius_b],
+        shift_distances=[shift_distance, -shift_distance],  # Opposite sides
+        length_diffs=[0, -length_diff],
+        tubule_names=["A", "B"],
+        colors=[color_a, color_b],
+        group_name=name
     )
-    register('draw_mt', desc_mt, draw_mt, logger=logger)
-    
-    # Register draw_doublet command
-    desc_doublet = CmdDesc(
-        keyword = [('length', FloatArg),
-                   ('interval', FloatArg),
-                   ('angle', FloatArg),
-                   ('radius_a', FloatArg),
-                   ('radius_b', FloatArg),
-                   ('shift_distance', FloatArg),
-                   ('length_diff', FloatArg),
-                   ('name', StringArg),
-                   ('color_a', Color8Arg),
-                   ('color_b', Color8Arg)],
-        synopsis = 'Draw doublet (A and B tubules)'
-    )
-    register('draw_doublet', desc_doublet, draw_doublet, logger=logger)
-    
-    # Register draw_cp command
-    desc_cp = CmdDesc(
-        keyword = [('length', FloatArg),
-                   ('interval', FloatArg),
-                   ('angle', FloatArg),
-                   ('radius_a', FloatArg),
-                   ('radius_b', FloatArg),
-                   ('shift_distance', FloatArg),
-                   ('length_diff', FloatArg),
-                   ('name', StringArg),
-                   ('color_a', Color8Arg),
-                   ('color_b', Color8Arg)],
-        synopsis = 'Draw cp (C1 and C2 tubules)'
-    )
-    register('draw_cp', desc_cp, draw_cp, logger=logger)
 
 
-# Register commands
-#register_command(session.logger)
+def draw_cp(session, length=3500, interval=80, angle=0, 
+            radius_a=125, radius_b=125, shift_distance=160,
+            length_diff=0,
+            name="central_pair", color_a=COLOR_CP_TUBULE, color_b=COLOR_CP_TUBULE):
+    """
+    Draw central pair (convenience wrapper for draw_tubules).
+    """
+    return draw_tubules(
+        session=session,
+        length=length,
+        interval=interval,
+        angle=angle,
+        radii=[radius_a, radius_b],
+        shift_distances=[shift_distance, -shift_distance],  # Opposite sides
+        length_diffs=[0, -length_diff],
+        tubule_names=["C1", "C2"],
+        colors=[color_a, color_b],
+        group_name=name
+    )
+
+
+def draw_triplet(session, length=3000, interval=80, angle=0,
+                radii=None, shift_distances=None,
+                length_diffs=None,
+                name="triplet", colors=None):
+    """
+    Draw a microtubule triplet (A, B, C tubules).
+    
+    Default configuration:
+    - A-tubule: length=length, radius=125, shift=+70
+    - B-tubule: length=length-5, radius=130, shift=0 (center)
+    - C-tubule: length=length-10, radius=135, shift=-70
+    """
+    if radii is None:
+        radii = [125, 130, 130]
+    if shift_distances is None:
+        shift_distances = [140, 0, -140]
+    if length_diffs is None:
+        length_diffs = [0, -5, -1000]
+    if colors is None:
+        colors = [COLOR_A_TUBULE, COLOR_B_TUBULE, COLOR_C_TUBULE]
+    
+    return draw_tubules(
+        session=session,
+        length=length,
+        interval=interval,
+        angle=angle,
+        radii=radii,
+        shift_distances=shift_distances,
+        length_diffs=length_diffs,
+        tubule_names=["A", "B", "C"],
+        colors=colors,
+        group_name=name
+    )
+
 
 # Example usage:
-# draw_mt length 1500 interval 80 radius 125 name centerline
-# draw_doublet length 1500 interval 80 angle 45 radius_a 125 radius_b 130 length_diff 5 name mt_doublet
+"""
+# Singlet (single microtubule along centerline)
+draw_mt(session, length=1500, radius=125, name="center_mt")
+
+# Doublet at 0° angle (default X direction)
+draw_doublet(session, length=1500, angle=0)
+
+# Doublet at 45° angle
+draw_doublet(session, length=1500, angle=45)
+
+# Central pair at 90° angle
+draw_cp(session, length=1500, angle=90)
+
+# Triplet at 30° angle
+draw_triplet(session, length=1500, angle=30)
+
+# Custom configuration - 3 tubules all same length
+draw_tubules(session, 
+            length=2000,
+            angle=0,
+            radii=[125, 130, 130],
+            shift_distances=[80, 0, -80],  # One side, center, other side
+            length_diffs=[0, 0, 0],  # All same length
+            tubule_names=["MT1", "MT2", "MT3"],
+            colors=[(255,0,0,255), (0,255,0,255), (0,0,255,255)],
+            group_name="custom_triplet")
+
+# Or draw a singlet using draw_tubules with single-element lists
+draw_tubules(session,
+            length=1500,
+            radii=[125],
+            shift_distances=[0],  # No shift = centerline
+            length_diffs=[0],
+            tubule_names=["Center"],
+            colors=[(255,255,0,255)],
+            group_name="singlet")
+
+# The angle defines the perpendicular direction:
+# angle=0° means shift along X-axis
+# angle=90° means shift along Y-axis
+# angle=45° means shift along XY diagonal
+# Positive shift_distance = in the +angle direction
+# Negative shift_distance = in the -angle direction (opposite side)
+"""
