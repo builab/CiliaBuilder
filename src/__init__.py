@@ -44,18 +44,27 @@ class _MyAPI(BundleAPI):
         # synopsis from bundle_info.xml if none is supplied
         # by the code.
         from . import cmd
+        from chimerax.core.commands import register
         
-        desc = cmd.ciliasim_desc
+        from . import cmd
+        from chimerax.core.commands import register
+        
+        if ci.name == "ciliasim":
+            func = cmd.ciliasim
+            desc = cmd.ciliasim_desc
+        elif ci.name == "centriolesim":
+            func = cmd.centriolesim
+            desc = cmd.centriolesim_desc
+        else:
+            logger.warning(f"Unknown command {ci.name} listed in bundle_info.xml")
+            return
+
         if desc.synopsis is None:
             desc.synopsis = ci.synopsis
-
+            
         # We then register the function as the command callback
         # with the chimerax.core.commands module.
-        # Note that the command name registered is not hardwired,
-        # but actually comes from bundle_info.xml.  In this example,
-        # the command name is "hello", not "hello world".
-        from chimerax.core.commands import register
-        register(ci.name, desc, cmd.ciliasim)
-    
+        register(ci.name, desc, func)  
+          
 # Create the ``bundle_api`` object that ChimeraX expects.
 bundle_api = _MyAPI()
