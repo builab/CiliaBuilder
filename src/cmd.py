@@ -1,6 +1,7 @@
 # vim: set expandtab shiftwidth=4 softtabstop=4:
 
 from chimerax.core.commands import CmdDesc, IntArg, FloatArg, StringArg, BoolArg
+
 import numpy as np
 from chimerax.core.models import Surface
 from .curve import generate_cilia_structure, get_doublet_centerline

@@ -1,6 +1,8 @@
 # vim: set expandtab shiftwidth=4 softtabstop=4:
 
 from chimerax.core.tools import ToolInstance
+from chimerax.core.commands import run
+
 from chimerax.ui import MainToolWindow
 from Qt.QtWidgets import (QVBoxLayout, QHBoxLayout, QGridLayout,
                           QWidget, QLabel, QLineEdit, QPushButton,
@@ -44,6 +46,17 @@ class CiliaBuilder(ToolInstance):
         
         # Build the user interface
         self._build_ui()
+        
+        # --- PLACE THE COMMAND HERE ---
+        # This runs the command to set the lighting as soon as the tool is instantiated.
+        session.logger.info(f"Starting Cilia Builder - Builab 2025")
+        session.logger.info("Default setting:\n\tset bgColor white\n\tlighting depthCue false\n\tlighting soft\n\tgraphics silhouettes true\n\tlighting shadows true")
+        run(session, "set bgColor white", log=False)
+        run(session, "lighting depthCue false", log=False)
+        run(session, "lighting soft", log=False) 
+        run(session, "graphics silhouettes true", log=False)
+        run(session, "lighting shadows true", log=False)
+        # ------------------------------
 
 
     def _build_ui(self):
@@ -112,7 +125,7 @@ class CiliaBuilder(ToolInstance):
         
         self.sine_amp_label = QLabel("Amplitude (Å):")
         sine_h_layout.addWidget(self.sine_amp_label)
-        self.sine_amplitude_input = QLineEdit("500.0")
+        self.sine_amplitude_input = QLineEdit("2000.0")
         sine_h_layout.addWidget(self.sine_amplitude_input)
         
         general_layout.addLayout(sine_h_layout, 6, 0, 1, 2) # Span 2 columns
@@ -150,7 +163,7 @@ class CiliaBuilder(ToolInstance):
         membrane_param_h_layout.addWidget(self.membrane_radius_input)
 
         membrane_param_h_layout.addWidget(QLabel("Fraction (0-1):"))
-        self.membrane_fraction_input = QLineEdit("0.8")
+        self.membrane_fraction_input = QLineEdit("0.5")
         membrane_param_h_layout.addWidget(self.membrane_fraction_input)
         
         cilia_layout.addLayout(membrane_param_h_layout, 3, 0, 1, 2)

@@ -1,5 +1,5 @@
-# CiliaBuilder later
-Only testing internally now. Release in 6 months with a lot of more function planned.
+# CiliaBuilder
+Only testing internally now. Probably release in 6 months with a lot of more function planned.
 
 ## Installation
 
@@ -46,3 +46,4 @@ DONE
 - Make the UI version
 - Make membrane.
 - Group of group modification
+- Name change to CiliaBuilder
