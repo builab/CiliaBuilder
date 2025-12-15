@@ -1,4 +1,4 @@
-# CiliaSBuilder later
+# CiliaBuilder later
 Only testing internally now. Release in 6 months with a lot of more function planned.
 
 ## Installation
