@@ -100,6 +100,9 @@ def ciliabuild(session,
     # Draw each doublet microtubule
     session.logger.info(f"Drawing {num_doublets} doublet microtubules...")
     
+    # For B-tubule: 
+    # - Find START index (offset from beginning for visual separation)
+    idx_b_start = 1
     
     for doublet_info in structure['doublets']:
         # Get the shifted centerline for this doublet
@@ -125,7 +128,7 @@ def ciliabuild(session,
         
         # Create separate centerlines for A and B
         doublet_centerline_a = doublet_centerline  # Full length
-        doublet_centerline_b = doublet_centerline[:idx_b]  # Shortened
+        doublet_centerline_b = doublet_centerline[idx_b_start:idx_b]  # Shortened
         
         # Create empty doublet surfs
         doublet_surfs = []
@@ -176,13 +179,13 @@ def ciliabuild(session,
         session.logger.info("Drawing central pair (C1, C2)...")
         cp_surfs = draw_tubules(
             session=session,
-            length=length, 
+            length=None,  # Use full centerline
             interval=MAX_INTERVAL,
             centerline_points=structure['centerline'],
             angle=0,
             radii=[cp_radius, cp_radius],
             shift_distances=[cp_shift, -cp_shift],
-            length_diffs=[0.0, 0.0], 
+            length_diffs=None,
             tubule_names=["C1", "C2"],
             colors=[(100, 255, 255, 255), (100, 255, 255, 255)],
             group_name="central_pair"
@@ -261,11 +264,11 @@ def centriolebuild(session,
                 # Triplet Geometry Defaults
                 triplet_a_radius=125.0,
                 triplet_b_radius=135.0,
-                triplet_c_radius=140.0,
+                triplet_c_radius=135.0,
                 triplet_ab_shift=70.0,  # A and B shift from triplet centerline
                 triplet_c_shift=200.0,   # C shift from triplet centerline
-                triplet_b_length_diff=1.0,  # B shorter than A
-                triplet_c_length_diff=300.0   # C shorter than A
+                triplet_b_length_diff=0.1,  # B shorter than A at END
+                triplet_c_length_diff=0.2,   # C shorter than A at END
                 ):
     """
     Generate and draw a complete centriole structure with triplet microtubules.
@@ -304,9 +307,9 @@ def centriolebuild(session,
     triplet_c_shift : float
         Radial distance of C tubule from triplet centerline (default: 200.0)
     triplet_b_length_diff : float
-        Length difference: B shorter than A (default: 5.0)
+        Length difference: B shorter than A at the END (default: 0.1)
     triplet_c_length_diff : float
-        Length difference: C shorter than A (default: 300.0)
+        Length difference: C shorter than A at the END (default: 0.2)
     """
     
     centerline_type = line
@@ -348,20 +351,29 @@ def centriolebuild(session,
         
         total_triplet_length = triplet_cumulative_length[-1]
         
-        # For B-tubule: find index where arc length = total_length - triplet_b_length_diff
-        target_b_length = total_triplet_length - triplet_b_length_diff
-        idx_b = np.searchsorted(triplet_cumulative_length, target_b_length, side='right')
-        idx_b = max(2, min(idx_b, len(triplet_centerline)))
+        # For B-tubule: 
+        # - Find START index (offset from beginning for visual separation)
+        idx_b_start = 1
         
-        # For C-tubule: find index where arc length = total_length - triplet_c_length_diff
+        
+        # - Find END index (shortened from end)
+        target_b_length = total_triplet_length - triplet_b_length_diff
+        idx_b_end = np.searchsorted(triplet_cumulative_length, target_b_length, side='right')
+        idx_b_end = max(2, min(idx_b_end, len(triplet_centerline)))
+        
+        # For C-tubule:
+        # - Find START index (offset from beginning for visual separation)
+        idx_c_start = 2
+        
+        # - Find END index (shortened from end)
         target_c_length = total_triplet_length - triplet_c_length_diff
-        idx_c = np.searchsorted(triplet_cumulative_length, target_c_length, side='right')
-        idx_c = max(2, min(idx_c, len(triplet_centerline)))
+        idx_c_end = np.searchsorted(triplet_cumulative_length, target_c_length, side='right')
+        idx_c_end = max(2, min(idx_c_end, len(triplet_centerline)))
         
         # Create separate centerlines for A, B, and C
-        triplet_centerline_a = triplet_centerline  # Full length
-        triplet_centerline_b = triplet_centerline[:idx_b]  # Shortened by triplet_b_length_diff
-        triplet_centerline_c = triplet_centerline[:idx_c]  # Shortened by triplet_c_length_diff
+        triplet_centerline_a = triplet_centerline  # Full length, starts at beginning
+        triplet_centerline_b = triplet_centerline[idx_b_start:idx_b_end]  # Staggered start AND shortened end
+        triplet_centerline_c = triplet_centerline[idx_c_start:idx_c_end]  # Staggered start AND shortened end
         
         # Create triplet surface
         triplet_surfs = []
@@ -384,7 +396,7 @@ def centriolebuild(session,
         if a_surfs:
             triplet_surfs.extend(a_surfs)
         
-        # Draw B-tubule (shortened)
+        # Draw B-tubule (staggered start + shortened end)
         b_surfs = draw_tubules(
             session=session,
             length=None,
@@ -402,7 +414,7 @@ def centriolebuild(session,
         if b_surfs:
             triplet_surfs.extend(b_surfs)
         
-        # Draw C-tubule (most shortened)
+        # Draw C-tubule (staggered start + shortened end)
         c_surfs = draw_tubules(
             session=session,
             length=None,
