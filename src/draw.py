@@ -234,7 +234,8 @@ def draw_tubules(session,
                  length_diffs=None,
                  tubule_names=None,
                  colors=None,
-                 group_name="tubules"):
+                 group_name="tubules",
+                 add_to_session=False):
     """
     Draw multiple tubules (doublet, triplet, etc.) shifted perpendicular to centerline.
     """
@@ -350,8 +351,8 @@ def draw_tubules(session,
         if tube is not None:
             surfs.append(tube)
     
-    # Add all as a group
-    if surfs:
+    # Add all as a group if requested
+    if surfs and add_to_session:
         session.models.add_group(surfs, name=group_name)
     
     # Log information
@@ -373,7 +374,7 @@ def draw_tubules(session,
 
 
 def draw_membrane(session, centerline_points, radius=1100.0, segments=32, 
-                  color=(105, 105, 105, 128), name="membrane"):
+                  color=(105, 105, 105, 255), name="membrane"):
     """
     Draw a membrane as an uncapped tube surface.
     
@@ -409,7 +410,7 @@ def draw_membrane(session, centerline_points, radius=1100.0, segments=32,
         color=color,
         name=name,
         capped=False,  # Key difference: no end caps
-        add_to_session=True  # Add directly to session
+        add_to_session=False  # Add directly to session
     )
     
     if membrane is not None:

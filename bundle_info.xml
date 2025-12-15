@@ -44,12 +44,12 @@ will be displayed without the ChimeraX- prefix.
     <PythonClassifier>License :: Freeware</PythonClassifier>
     <!-- ChimeraX classifiers describe supplied functionality -->
     <!-- Register a graphical interface tool -->
-    <ChimeraXClassifier>ChimeraX :: Tool :: CiliaSim ::
-      Higher-Order Structure :: Simulate Cilia Structure</ChimeraXClassifier>
+    <ChimeraXClassifier>ChimeraX :: Tool :: Cilia Simulation ::
+      Higher-Order Structure :: Cilia Simulation</ChimeraXClassifier>
     <ChimeraXClassifier>ChimeraX :: Command :: ciliasim :: General ::
-	Simulate Cilia Structure</ChimeraXClassifier>
+	Cilia Simulation</ChimeraXClassifier>
 	<ChimeraXClassifier>ChimeraX :: Command :: centriolesim :: General ::
-	Simulate Centriole Structure</ChimeraXClassifier>
+	Centriole Simulation</ChimeraXClassifier>
   </Classifiers>
 
 </BundleInfo>

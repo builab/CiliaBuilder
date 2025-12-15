@@ -1,7 +1,7 @@
 # vim: set expandtab shiftwidth=4 softtabstop=4:
 
 from chimerax.core.commands import CmdDesc, IntArg, FloatArg, StringArg, BoolArg
-
+import numpy as np
 from .curve import generate_cilia_structure, get_doublet_centerline
 from .draw import draw_tubules, draw_membrane
 
@@ -92,10 +92,78 @@ def ciliasim(session,
         cilia_radius=cilia_radius
     )
     
+    all_surfaces = []
+            
+    # Draw each doublet microtubule
+    session.logger.info(f"Drawing {num_doublets} doublet microtubules...")
+    
+    
+    for doublet_info in structure['doublets']:
+        # Get the shifted centerline for this doublet
+        doublet_centerline = get_doublet_centerline(
+            structure['centerline'],
+            doublet_info['angle'],
+            doublet_info['shift_distance']
+        )
+        
+        # Ensure doublet centerline has same number of points as main centerline
+        if len(doublet_centerline) != len(structure['centerline']):
+            doublet_centerline = doublet_centerline[:len(structure['centerline'])]
+        
+        # Calculate arc length along this doublet's centerline
+        doublet_segment_lengths = np.linalg.norm(np.diff(doublet_centerline, axis=0), axis=1)
+        doublet_cumulative_length = np.concatenate(([0], np.cumsum(doublet_segment_lengths)))
+        
+        # For B-tubule: find index where arc length = total_length - doublet_length_diff
+        total_doublet_length = doublet_cumulative_length[-1]
+        target_b_length = total_doublet_length - doublet_length_diff
+        idx_b = np.searchsorted(doublet_cumulative_length, target_b_length, side='right')
+        idx_b = max(2, min(idx_b, len(doublet_centerline)))
+        
+        # Create separate centerlines for A and B
+        doublet_centerline_a = doublet_centerline  # Full length
+        doublet_centerline_b = doublet_centerline[:idx_b]  # Shortened
+        
+        # Draw A-tubule (full length)
+        a_surfs = draw_tubules(
+            session=session,
+            length=None,
+            interval=MAX_INTERVAL,
+            centerline_points=doublet_centerline_a,
+            angle=doublet_info['angle'] + CILIA_OFFSET_ANGLE,
+            radii=[doublet_a_radius],
+            shift_distances=[-doublet_shift],
+            length_diffs=None,
+            tubule_names=[f"MT{doublet_info['index']+1}_A"],
+            colors=[(100, 100, 255, 255)],
+            group_name=f"MT{doublet_info['index']+1}_A",
+            add_to_session=False  # Don't add yet
+        )
+        if a_surfs:
+            all_surfaces.extend(a_surfs)
+        
+        # Draw B-tubule (shortened)
+        b_surfs = draw_tubules(
+            session=session,
+            length=None,
+            interval=MAX_INTERVAL,
+            centerline_points=doublet_centerline_b,
+            angle=doublet_info['angle'] + CILIA_OFFSET_ANGLE,
+            radii=[doublet_b_radius],
+            shift_distances=[doublet_shift],
+            length_diffs=None,
+            tubule_names=[f"MT{doublet_info['index']+1}_B"],
+            colors=[(100, 100, 255, 255)],
+            group_name=f"MT{doublet_info['index']+1}_B",
+            add_to_session=False  # Don't add yet
+        )
+        if b_surfs:
+            all_surfaces.extend(b_surfs)
+            
     # Draw central pair if requested
     if draw_central_pair:
         session.logger.info("Drawing central pair (C1, C2)...")
-        draw_tubules(
+        cp_surfs = draw_tubules(
             session=session,
             length=length, 
             interval=MAX_INTERVAL,
@@ -108,11 +176,11 @@ def ciliasim(session,
             colors=[(100, 255, 255, 255), (100, 255, 255, 255)],
             group_name="central_pair"
         )
+        all_surfaces.extend(cp_surfs)
     
     # Draw membrane if requested
     if membrane:
         # Calculate membrane path - use only the fraction from the base
-        import numpy as np
         
         # Clamp membrane_fraction to valid range
         membrane_fraction = max(0.0, min(1.0, membrane_fraction))
@@ -139,41 +207,22 @@ def ciliasim(session,
         session.logger.info(f"  Membrane length: {actual_membrane_length:.0f} Å ({actual_membrane_length/length*100:.1f}% of cilia)")
         session.logger.info(f"  Points used: {membrane_points}/{total_points}")
         session.logger.info(f"  First point Z: {membrane_path[0][2]:.1f}, Last point Z: {membrane_path[-1][2]:.1f}")
+        session.logger.info(f"  First point Z: {membrane_path[0][2]:.1f}, Last point Z: {membrane_path[-1][2]:.1f}")
         
-        draw_membrane(
+        membrane_surf = draw_membrane(
             session=session,
             centerline_points=membrane_path,
             radius=membrane_radius,
             segments=32, 
-            color=(105, 105, 105, 128),
+            color=(105, 105, 105, 255),
             name="membrane"
         )
-        
-    # Draw each doublet microtubule
-    session.logger.info(f"Drawing {num_doublets} doublet microtubules...")
-    for doublet_info in structure['doublets']:
-        # Get the shifted centerline for this doublet
-        doublet_centerline = get_doublet_centerline(
-            structure['centerline'],
-            doublet_info['angle'],
-            doublet_info['shift_distance']
-        )
-        
-        # Draw the doublet (A and B tubules)
-        draw_tubules(
-            session=session,
-            length=length,
-            interval=MAX_INTERVAL,
-            centerline_points=doublet_centerline,
-            angle=doublet_info['angle'] + CILIA_OFFSET_ANGLE,  # Orientation of A-B pair
-            radii=[doublet_a_radius, doublet_b_radius],
-            shift_distances=[-doublet_shift, doublet_shift],
-            length_diffs=[0.0, -doublet_length_diff],
-            tubule_names=[f"MT{doublet_info['index']+1}_A", 
-                         f"MT{doublet_info['index']+1}_B"],
-            colors=[(100, 100, 255, 255), (100, 100, 255, 255)],
-            group_name=doublet_info['name']
-        )
+        all_surfaces.append(membrane_surf)
+    
+    # Add all surfaces as a single cilia group
+    if all_surfaces:
+        session.models.add_group(all_surfaces, name="cilia")
+        session.logger.info(f"Added {len(all_surfaces)} surfaces to 'cilia' group")
     
     session.logger.info(f"Cilia model generated successfully!")
     session.logger.info(f"  Type: {centerline_type}")
@@ -259,6 +308,8 @@ def centriolesim(session,
         cilia_radius=centriole_radius
     )
     
+    all_surfaces = []
+    
     # Draw each triplet microtubule
     session.logger.info(f"Drawing {num_triplets} triplet microtubules...")
     for triplet_info in structure['doublets']:  # Reuse 'doublets' key
@@ -269,22 +320,89 @@ def centriolesim(session,
             triplet_info['shift_distance']
         )
         
-        # Draw the triplet (A, B, and C tubules)
-        draw_tubules(
+        # Ensure triplet centerline has same number of points as main centerline
+        if len(triplet_centerline) != len(structure['centerline']):
+            triplet_centerline = triplet_centerline[:len(structure['centerline'])]
+        
+        # Calculate arc length along this triplet's centerline
+        triplet_segment_lengths = np.linalg.norm(np.diff(triplet_centerline, axis=0), axis=1)
+        triplet_cumulative_length = np.concatenate(([0], np.cumsum(triplet_segment_lengths)))
+        
+        total_triplet_length = triplet_cumulative_length[-1]
+        
+        # For B-tubule: find index where arc length = total_length - triplet_b_length_diff
+        target_b_length = total_triplet_length - triplet_b_length_diff
+        idx_b = np.searchsorted(triplet_cumulative_length, target_b_length, side='right')
+        idx_b = max(2, min(idx_b, len(triplet_centerline)))
+        
+        # For C-tubule: find index where arc length = total_length - triplet_c_length_diff
+        target_c_length = total_triplet_length - triplet_c_length_diff
+        idx_c = np.searchsorted(triplet_cumulative_length, target_c_length, side='right')
+        idx_c = max(2, min(idx_c, len(triplet_centerline)))
+        
+        # Create separate centerlines for A, B, and C
+        triplet_centerline_a = triplet_centerline  # Full length
+        triplet_centerline_b = triplet_centerline[:idx_b]  # Shortened by triplet_b_length_diff
+        triplet_centerline_c = triplet_centerline[:idx_c]  # Shortened by triplet_c_length_diff
+        
+        # Draw A-tubule (full length)
+        a_surfs = draw_tubules(
             session=session,
-            length=length,
+            length=None,
             interval=MAX_INTERVAL,
-            centerline_points=triplet_centerline,
-            angle=triplet_info['angle'] + centriole_angle_offset,  # Tunable offset
-            radii=[triplet_a_radius, triplet_b_radius, triplet_c_radius],
-            shift_distances=[-triplet_ab_shift, triplet_ab_shift, triplet_c_shift],
-            length_diffs=[0.0, -triplet_b_length_diff, -triplet_c_length_diff],
-            tubule_names=[f"MT{triplet_info['index']+1}_A",
-                         f"MT{triplet_info['index']+1}_B",
-                         f"MT{triplet_info['index']+1}_C"],
-            colors=[(100, 255, 255, 255), (100, 255, 255, 255), (100, 100, 255, 255)],
-            group_name=f"triplet_{triplet_info['index']+1}"
+            centerline_points=triplet_centerline_a,
+            angle=triplet_info['angle'] + centriole_angle_offset,
+            radii=[triplet_a_radius],
+            shift_distances=[-triplet_ab_shift],
+            length_diffs=None,
+            tubule_names=[f"MT{triplet_info['index']+1}_A"],
+            colors=[(100, 255, 255, 255)],
+            group_name=f"MT{triplet_info['index']+1}_A",
+            add_to_session=False
         )
+        if a_surfs:
+            all_surfaces.extend(a_surfs)
+        
+        # Draw B-tubule (shortened)
+        b_surfs = draw_tubules(
+            session=session,
+            length=None,
+            interval=MAX_INTERVAL,
+            centerline_points=triplet_centerline_b,
+            angle=triplet_info['angle'] + centriole_angle_offset,
+            radii=[triplet_b_radius],
+            shift_distances=[triplet_ab_shift],
+            length_diffs=None,
+            tubule_names=[f"MT{triplet_info['index']+1}_B"],
+            colors=[(100, 255, 255, 255)],
+            group_name=f"MT{triplet_info['index']+1}_B",
+            add_to_session=False
+        )
+        if b_surfs:
+            all_surfaces.extend(b_surfs)
+        
+        # Draw C-tubule (most shortened)
+        c_surfs = draw_tubules(
+            session=session,
+            length=None,
+            interval=MAX_INTERVAL,
+            centerline_points=triplet_centerline_c,
+            angle=triplet_info['angle'] + centriole_angle_offset,
+            radii=[triplet_c_radius],
+            shift_distances=[triplet_c_shift],
+            length_diffs=None,
+            tubule_names=[f"MT{triplet_info['index']+1}_C"],
+            colors=[(100, 100, 255, 255)],
+            group_name=f"MT{triplet_info['index']+1}_C",
+            add_to_session=False
+        )
+        if c_surfs:
+            all_surfaces.extend(c_surfs)
+    
+    # Add all surfaces as a single centriole group
+    if all_surfaces:
+        session.models.add_group(all_surfaces, name="centriole")
+        session.logger.info(f"Added {len(all_surfaces)} surfaces to 'centriole' group")
     
     session.logger.info(f"Centriole model generated successfully!")
     session.logger.info(f"  Type: {centerline_type}")
@@ -334,8 +452,8 @@ centriolesim_desc = CmdDesc(
         ('triplet_c_radius', FloatArg),
         ('triplet_ab_shift', FloatArg),
         ('triplet_c_shift', FloatArg),
-        ('triplet_b_length_diff', FloatArg),  # FIX: Changed from 'triplet_ab_length_diff'
-        ('triplet_c_length_diff', FloatArg)   # FIX: Changed from 'triplet_bc_length_diff'
+        ('triplet_b_length_diff', FloatArg),
+        ('triplet_c_length_diff', FloatArg)
     ],
     synopsis='Generate complete centriole structure with triplet microtubules'
 )
