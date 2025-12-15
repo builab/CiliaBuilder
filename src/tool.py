@@ -8,10 +8,10 @@ from Qt.QtWidgets import (QVBoxLayout, QHBoxLayout, QGridLayout,
 from Qt.QtCore import Qt
 
 # Import the command functions from cmd.py
-from .cmd import ciliasim, centriolesim 
+from .cmd import ciliabuild, centriolebuild 
 
 # Define the optimal sampling interval for smoothness (10 Angstroms)
-MAX_INTERVAL = 10.0 
+MAX_INTERVAL = 20.0 
 
 # Fixed Microtubule Dimensions (kept for reference, but cmd.py handles the actual values)
 # Cilia Doublet
@@ -281,7 +281,7 @@ class CiliaSim(ToolInstance):
             is_cilia = self.mode_combo.currentText().startswith('Cilia')
             
             if is_cilia:
-                # --- CILIA (9x2 + 2) Logic - Call ciliasim ---
+                # --- CILIA (9x2 + 2) Logic - Call ciliabuild ---
                 
                 # Cilia-specific inputs
                 draw_central_pair = self.draw_cp_check.isChecked()
@@ -291,9 +291,9 @@ class CiliaSim(ToolInstance):
                 membrane_fraction = float(self.membrane_fraction_input.text())
                 
                 # Call the command function with all parameters
-                # This ensures membrane_radius and membrane_fraction are passed to ciliasim,
+                # This ensures membrane_radius and membrane_fraction are passed to ciliabuild,
                 # which then calls draw_membrane.
-                ciliasim(
+                ciliabuild(
                     session=self.session,
                     length=length, 
                     line=centerline_type,
@@ -310,7 +310,7 @@ class CiliaSim(ToolInstance):
                 )
                 
             else:
-                # --- CENTRIOLE (9x3) Logic - Call centriolesim ---
+                # --- CENTRIOLE (9x3) Logic - Call centriolebuild ---
                 
                 # Centriole-specific inputs
                 angle_offset = float(self.centriole_angle_offset_input.text())
@@ -318,7 +318,7 @@ class CiliaSim(ToolInstance):
                 bc_length_diff = float(self.centriole_bc_length_diff_input.text())
                 
                 # Call the command function with all parameters
-                centriolesim(
+                centriolebuild(
                     session=self.session,
                     length=length,
                     line=centerline_type,

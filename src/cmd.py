@@ -11,7 +11,7 @@ MAX_INTERVAL = 20.0 # 10 Angstroms interval for centerline points
 CILIA_OFFSET_ANGLE = 90.0 # Offset angle for cilia doublets
 
 
-def ciliasim(session, 
+def ciliabuild(session, 
             length=15000, 
             line='straight', # Simplified from centerline_type
             curve_radius=10000.0, 
@@ -247,7 +247,7 @@ def ciliasim(session,
         session.logger.info(f"  Membrane: {membrane_fraction*100:.1f}% coverage, radius {membrane_radius} Å")
 
 
-def centriolesim(session,
+def centriolebuild(session,
                 length=5000,
                 line='straight',
                 curve_radius=10000.0,
@@ -431,8 +431,8 @@ def centriolesim(session,
     session.logger.info(f"  Angle offset: {centriole_angle_offset}°")
 
 
-# Command description for ciliasim
-ciliasim_desc = CmdDesc(
+# Command description for ciliabuild
+ciliabuild_desc = CmdDesc(
     keyword=[
         ('length', FloatArg),
         ('line', StringArg),
@@ -455,8 +455,8 @@ ciliasim_desc = CmdDesc(
     synopsis='Generate complete cilia structure with customizable geometry'
 )
 
-# Command description for centriolesim
-centriolesim_desc = CmdDesc(
+# Command description for centriolebuild
+centriolebuild_desc = CmdDesc(
     keyword=[
         ('length', FloatArg),
         ('line', StringArg),

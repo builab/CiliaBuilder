@@ -5,20 +5,20 @@ When uploaded to the ChimeraX toolshed, the bundle
 will be displayed without the ChimeraX- prefix.
 -->
 
-<BundleInfo name="ChimeraX-CiliaSim"
-	    version="0.4.2" package="chimerax.ciliasim"
+<BundleInfo name="ChimeraX-CiliaBuilder"
+	    version="0.4.3" package="chimerax.ciliasim"
   	    minSessionVersion="1" maxSessionVersion="1">
 
   <!-- Additional information about bundle source -->
   <Author>Bui lab@McGill</Author>
   <Email>huy.bui@mcgill.ca</Email>
-  <URL>https://github.com/builab/CiliaSim</URL>
+  <URL>https://github.com/builab/CiliaBuilder</URL>
 
   <!-- Synopsis is a one-line description
        Description is a full multi-line description -->
   <Synopsis>Cilia Model Simulation</Synopsis>
   <Description>
-  Implements CiliaSim ChimeraX as model or with ArtiaX.
+  Implements CiliaBuilder ChimeraX as model or with ArtiaX.
   </Description>
 
   <!-- Categories is a list where this bundle should appear -->
@@ -35,7 +35,7 @@ will be displayed without the ChimeraX- prefix.
 
   <!-- Non-Python files that are part of package -->
   <DataFiles>
-    <DataFile>docs/user/tools/CiliaSim.html</DataFile>
+    <DataFile>docs/user/tools/CiliaBuilder.html</DataFile>
   </DataFiles>
 
   <Classifiers>
@@ -44,11 +44,11 @@ will be displayed without the ChimeraX- prefix.
     <PythonClassifier>License :: Freeware</PythonClassifier>
     <!-- ChimeraX classifiers describe supplied functionality -->
     <!-- Register a graphical interface tool -->
-    <ChimeraXClassifier>ChimeraX :: Tool :: CiliaSim ::
+    <ChimeraXClassifier>ChimeraX :: Tool :: Cilia Builder ::
       Higher-Order Structure :: Cilia Simulation</ChimeraXClassifier>
-    <ChimeraXClassifier>ChimeraX :: Command :: ciliasim :: General ::
+    <ChimeraXClassifier>ChimeraX :: Command :: ciliabuild :: General ::
 	Cilia Simulation</ChimeraXClassifier>
-	<ChimeraXClassifier>ChimeraX :: Command :: centriolesim :: General ::
+	<ChimeraXClassifier>ChimeraX :: Command :: centriolebuild :: General ::
 	Centriole Simulation</ChimeraXClassifier>
   </Classifiers>
 

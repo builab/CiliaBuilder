@@ -24,9 +24,9 @@ class _MyAPI(BundleAPI):
         # ones listed in bundle_info.xml (without the leading and
         # trailing whitespace), and create and return an instance of the
         # appropriate class from the ``tool`` module.
-        if ti.name == "CiliaSim":
+        if ti.name == "Cilia Builder":
             from . import tool
-            return tool.CiliaSim(session, ti.name)
+            return tool.CiliaBuilder(session, ti.name)
         raise ValueError("trying to start unknown tool: %s" % ti.name)
 
     @staticmethod
@@ -49,12 +49,12 @@ class _MyAPI(BundleAPI):
         from . import cmd
         from chimerax.core.commands import register
         
-        if ci.name == "ciliasim":
-            func = cmd.ciliasim
-            desc = cmd.ciliasim_desc
-        elif ci.name == "centriolesim":
-            func = cmd.centriolesim
-            desc = cmd.centriolesim_desc
+        if ci.name == "ciliabuild":
+            func = cmd.ciliabuild
+            desc = cmd.ciliabuild_desc
+        elif ci.name == "centriolebuild":
+            func = cmd.centriolebuild
+            desc = cmd.centriolebuild_desc
         else:
             logger.warning(f"Unknown command {ci.name} listed in bundle_info.xml")
             return
