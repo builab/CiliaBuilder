@@ -18,7 +18,7 @@ MAX_INTERVAL = 20.0
 # Fixed Microtubule Dimensions (kept for reference, but cmd.py handles the actual values)
 # Cilia Doublet
 D_A_RADIUS = 125.0
-D_B_RADIUS = 145.0
+D_B_RADIUS = 140.0
 D_SHIFT = 70.0
 CP_RADIUS = 125.0
 CP_SHIFT = 160.0
@@ -152,7 +152,7 @@ class CiliaBuilder(ToolInstance):
         
         # Row 2: Doublet Length Difference
         cilia_layout.addWidget(QLabel("A-B Length Diff (Å):"), 2, 0)
-        self.cilia_doublet_length_diff_input = QLineEdit("250.0")
+        self.cilia_doublet_length_diff_input = QLineEdit("1.0")
         self.cilia_doublet_length_diff_input.setToolTip("Length of A-tubule - Length of B-tubule")
         cilia_layout.addWidget(self.cilia_doublet_length_diff_input, 2, 1)
         
@@ -181,9 +181,9 @@ class CiliaBuilder(ToolInstance):
         self.centriole_angle_offset_input = QLineEdit("60.0") 
         centriole_layout.addWidget(self.centriole_angle_offset_input, 1, 1)
 
-        # Row 2: Triplet A-B Length Difference (Default 5.0)
+        # Row 2: Triplet A-B Length Difference (Default 1.0)
         centriole_layout.addWidget(QLabel("A-B Length Diff (Å):"), 2, 0)
-        self.centriole_ab_length_diff_input = QLineEdit("5.0") 
+        self.centriole_ab_length_diff_input = QLineEdit("1.0") 
         centriole_layout.addWidget(self.centriole_ab_length_diff_input, 2, 1)
         
         # Row 3: Triplet B-C Length Difference (Default 300.0)

@@ -26,7 +26,7 @@ def ciliabuild(session,
             membrane_radius=1100,
             # Doublet Geometry Defaults
             doublet_a_radius=125.0, # A-tubule radius
-            doublet_b_radius=145.0, # B-tubule radius
+            doublet_b_radius=140.0, # B-tubule radius
             doublet_shift=70.0,     # A/B tubule shift from doublet centerline
             doublet_length_diff=250.0, # Length difference between A and B tubules (A - B)
             # Central Pair Geometry Defaults
@@ -264,7 +264,7 @@ def centriolebuild(session,
                 triplet_c_radius=140.0,
                 triplet_ab_shift=70.0,  # A and B shift from triplet centerline
                 triplet_c_shift=200.0,   # C shift from triplet centerline
-                triplet_b_length_diff=5.0,  # B shorter than A
+                triplet_b_length_diff=1.0,  # B shorter than A
                 triplet_c_length_diff=300.0   # C shorter than A
                 ):
     """
@@ -298,7 +298,7 @@ def centriolebuild(session,
     triplet_b_radius : float
         Radius of the B-tubule (default: 135.0)
     triplet_c_radius : float
-        Radius of the C-tubule (default: 140.0)
+        Radius of the C-tubule (default: 135.0)
     triplet_ab_shift : float
         Radial distance of A and B tubules from triplet centerline (default: 70.0)
     triplet_c_shift : float

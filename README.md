@@ -35,10 +35,13 @@ centriolebuild length 5000 num_triplets 12 centriole_radius 1200
 
 
 TODO
-- When doing sinuisoidal, the CP is actually much shorter.
-- Make a,b different for cilia as well to make central pair longer
-- Make coloring possible for doublet, triplet
-- Pre-calculated tip for Tetrahymena & Primary cilia.
+- When doing sinuisoidal, the CP is actually much shorter. (Priority)
+- Make a,b different for cilia as well to make central pair longer (Priority)
+- Make coloring possible for doublet, triplet. Using dropdown color and use run(session, 'color' to color directly)
+- Button to default close the old models & generate new models
+- Pre-calculated tip for Tetrahymena & Primary cilia. (Priority)
+- Make doublet hollow (low priority)
+- Make 1 Angstrom different at the starting end as well for better visualization. (Low priority)
 
 DONE
 - Curve and sinusoidal from same direction (Done)
@@ -47,4 +50,7 @@ DONE
 - Group of group modification
 - Name change to CiliaBuilder
 - Membrane as two layers and cover (Much better) 0.4.4
+
+Default:
+- Always make at least 1 A different in A, B & C
 
