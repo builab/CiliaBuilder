@@ -29,13 +29,14 @@ centriolesim length 5000 num_triplets 12 centriole_radius 1200
 
 
 TODO
-- Make coloring possible for doublet, triplet
-- what about group of group modification?
+- When doing sinuisoidal, the CP is actually much shorter.
 - Make a,b different for cilia as well to make central pair longer
-- Make membrane look nicer
-- Can you subtract surface in chimeraX?
+- Make coloring possible for doublet, triplet
+- Membrane as two layers and cover.
+- Pre-calculated tip for Tetrahymena & Primary cilia.
 
 DONE
 - Curve and sinusoidal from same direction (Done)
 - Make the UI version
 - Make membrane.
+- Group of group modification

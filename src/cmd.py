@@ -2,6 +2,7 @@
 
 from chimerax.core.commands import CmdDesc, IntArg, FloatArg, StringArg, BoolArg
 import numpy as np
+from chimerax.core.models import Surface
 from .curve import generate_cilia_structure, get_doublet_centerline
 from .draw import draw_tubules, draw_membrane
 
@@ -92,7 +93,8 @@ def ciliasim(session,
         cilia_radius=cilia_radius
     )
     
-    all_surfaces = []
+    cilia_root = Surface("Cilia", session)
+    session.models.add([cilia_root])
             
     # Draw each doublet microtubule
     session.logger.info(f"Drawing {num_doublets} doublet microtubules...")
@@ -124,6 +126,9 @@ def ciliasim(session,
         doublet_centerline_a = doublet_centerline  # Full length
         doublet_centerline_b = doublet_centerline[:idx_b]  # Shortened
         
+        # Create empty doublet surfs
+        doublet_surfs = []
+        
         # Draw A-tubule (full length)
         a_surfs = draw_tubules(
             session=session,
@@ -134,13 +139,13 @@ def ciliasim(session,
             radii=[doublet_a_radius],
             shift_distances=[-doublet_shift],
             length_diffs=None,
-            tubule_names=[f"MT{doublet_info['index']+1}_A"],
+            tubule_names=[f"A_tubule"],
             colors=[(100, 100, 255, 255)],
-            group_name=f"MT{doublet_info['index']+1}_A",
+            group_name=f"A_tubule",
             add_to_session=False  # Don't add yet
         )
         if a_surfs:
-            all_surfaces.extend(a_surfs)
+            doublet_surfs.extend(a_surfs)
         
         # Draw B-tubule (shortened)
         b_surfs = draw_tubules(
@@ -152,13 +157,18 @@ def ciliasim(session,
             radii=[doublet_b_radius],
             shift_distances=[doublet_shift],
             length_diffs=None,
-            tubule_names=[f"MT{doublet_info['index']+1}_B"],
+            tubule_names=[f"B_tubule"],
             colors=[(100, 100, 255, 255)],
-            group_name=f"MT{doublet_info['index']+1}_B",
+            group_name=f"B_tubule",
             add_to_session=False  # Don't add yet
         )
         if b_surfs:
-            all_surfaces.extend(b_surfs)
+            doublet_surfs.extend(b_surfs)
+        
+        session.models.add_group(doublet_surfs, parent=cilia_root, name=f"DMT{doublet_info['index']+1}")
+        session.logger.info(f"Added doublet {doublet_info['index']+1}")
+
+
             
     # Draw central pair if requested
     if draw_central_pair:
@@ -176,7 +186,9 @@ def ciliasim(session,
             colors=[(100, 255, 255, 255), (100, 255, 255, 255)],
             group_name="central_pair"
         )
-        all_surfaces.extend(cp_surfs)
+        session.models.add_group(cp_surfs, parent=cilia_root, name="Central Pair")
+        session.logger.info(f"Added central pair")
+
     
     # Draw membrane if requested
     if membrane:
@@ -215,14 +227,16 @@ def ciliasim(session,
             radius=membrane_radius,
             segments=32, 
             color=(105, 105, 105, 255),
-            name="membrane"
+            name="Membrane"
         )
-        all_surfaces.append(membrane_surf)
+        if membrane_surf:
+            session.models.add([membrane_surf], parent=cilia_root)
+            session.logger.info(f"Added membrane {doublet_info['index']+1}")
     
     # Add all surfaces as a single cilia group
-    if all_surfaces:
-        session.models.add_group(all_surfaces, name="cilia")
-        session.logger.info(f"Added {len(all_surfaces)} surfaces to 'cilia' group")
+    #if doublet_surfaces:
+    #    session.models.add_group(doublet_surfaces, parent=cilia_root, name="Doublet")
+    #    session.logger.info(f"Added {len(all_surfaces)} surfaces to 'cilia' group")
     
     session.logger.info(f"Cilia model generated successfully!")
     session.logger.info(f"  Type: {centerline_type}")
@@ -294,6 +308,8 @@ def centriolesim(session,
     """
     
     centerline_type = line
+    centriole_root = Surface("Centriole", session)
+    session.models.add([centriole_root])
     
     session.logger.info(f"Generating centriole structure with {centerline_type} centerline...")
     
@@ -308,7 +324,7 @@ def centriolesim(session,
         cilia_radius=centriole_radius
     )
     
-    all_surfaces = []
+    
     
     # Draw each triplet microtubule
     session.logger.info(f"Drawing {num_triplets} triplet microtubules...")
@@ -345,6 +361,9 @@ def centriolesim(session,
         triplet_centerline_b = triplet_centerline[:idx_b]  # Shortened by triplet_b_length_diff
         triplet_centerline_c = triplet_centerline[:idx_c]  # Shortened by triplet_c_length_diff
         
+        # Create triplet surface
+        triplet_surfs = []
+        
         # Draw A-tubule (full length)
         a_surfs = draw_tubules(
             session=session,
@@ -355,13 +374,13 @@ def centriolesim(session,
             radii=[triplet_a_radius],
             shift_distances=[-triplet_ab_shift],
             length_diffs=None,
-            tubule_names=[f"MT{triplet_info['index']+1}_A"],
+            tubule_names=[f"A_tubule"],
             colors=[(100, 255, 255, 255)],
-            group_name=f"MT{triplet_info['index']+1}_A",
+            group_name=f"A_tubule",
             add_to_session=False
         )
         if a_surfs:
-            all_surfaces.extend(a_surfs)
+            triplet_surfs.extend(a_surfs)
         
         # Draw B-tubule (shortened)
         b_surfs = draw_tubules(
@@ -373,13 +392,13 @@ def centriolesim(session,
             radii=[triplet_b_radius],
             shift_distances=[triplet_ab_shift],
             length_diffs=None,
-            tubule_names=[f"MT{triplet_info['index']+1}_B"],
+            tubule_names=[f"B_tubule"],
             colors=[(100, 255, 255, 255)],
-            group_name=f"MT{triplet_info['index']+1}_B",
+            group_name=f"B_tubule",
             add_to_session=False
         )
         if b_surfs:
-            all_surfaces.extend(b_surfs)
+            triplet_surfs.extend(b_surfs)
         
         # Draw C-tubule (most shortened)
         c_surfs = draw_tubules(
@@ -391,18 +410,18 @@ def centriolesim(session,
             radii=[triplet_c_radius],
             shift_distances=[triplet_c_shift],
             length_diffs=None,
-            tubule_names=[f"MT{triplet_info['index']+1}_C"],
+            tubule_names=[f"C_tubule"],
             colors=[(100, 100, 255, 255)],
-            group_name=f"MT{triplet_info['index']+1}_C",
+            group_name=f"C_tubule",
             add_to_session=False
         )
         if c_surfs:
-            all_surfaces.extend(c_surfs)
+            triplet_surfs.extend(c_surfs)
     
-    # Add all surfaces as a single centriole group
-    if all_surfaces:
-        session.models.add_group(all_surfaces, name="centriole")
-        session.logger.info(f"Added {len(all_surfaces)} surfaces to 'centriole' group")
+        # Add all surfaces as a single centriole group
+        if triplet_surfs:
+            session.models.add_group(triplet_surfs, parent=centriole_root, name=f"TMT{triplet_info['index']+1}")
+            session.logger.info(f"Added triplet {triplet_info['index']+1} to 'Centriole' group")
     
     session.logger.info(f"Centriole model generated successfully!")
     session.logger.info(f"  Type: {centerline_type}")
