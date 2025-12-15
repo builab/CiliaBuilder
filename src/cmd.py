@@ -3,10 +3,10 @@
 from chimerax.core.commands import CmdDesc, IntArg, FloatArg, StringArg, BoolArg
 
 from .curve import generate_cilia_structure, get_doublet_centerline
-from .draw import draw_tubules
+from .draw import draw_tubules, draw_membrane
 
 # Define the optimal sampling interval for smoothness (must match curve.py)
-MAX_INTERVAL = 10.0 # 10 Angstroms interval for centerline points
+MAX_INTERVAL = 20.0 # 10 Angstroms interval for centerline points
 CILIA_OFFSET_ANGLE = 90.0 # Offset angle for cilia doublets
 
 
@@ -19,6 +19,9 @@ def ciliasim(session,
             num_doublets=9, 
             cilia_radius=875.0,
             draw_central_pair=True,
+            membrane=True,
+            membrane_fraction=0.8,
+            membrane_radius=1100,
             # Doublet Geometry Defaults
             doublet_a_radius=125.0, # A-tubule radius
             doublet_b_radius=145.0, # B-tubule radius
@@ -52,6 +55,12 @@ def ciliasim(session,
         Radius from center to doublets in Angstroms (default: 875.0)
     draw_central_pair : bool
         Whether to draw the central pair (default: True)
+    membrane : bool
+        Whether to draw the membrane (default: True)
+    membrane_fraction : float
+        Fraction of cilia length covered by membrane, from base (0.0-1.0) (default: 0.7)
+    membrane_radius : float
+        Radius of the membrane in Angstroms (default: 1000)
         
     doublet_a_radius : float
         Radius of the A-tubule (default: 125.0)
@@ -100,6 +109,46 @@ def ciliasim(session,
             group_name="central_pair"
         )
     
+    # Draw membrane if requested
+    if membrane:
+        # Calculate membrane path - use only the fraction from the base
+        import numpy as np
+        
+        # Clamp membrane_fraction to valid range
+        membrane_fraction = max(0.0, min(1.0, membrane_fraction))
+        
+        total_points = len(structure['centerline'])
+        # Calculate number of points for the membrane (at least 2 for valid geometry)
+        # Use floor division to ensure we don't exceed the fraction
+        membrane_points = max(2, int(total_points * membrane_fraction))
+        
+        # Extract the membrane path (from base, index 0)
+        membrane_path = structure['centerline'][:membrane_points]
+        
+        # Calculate actual membrane length from the actual path
+        if len(membrane_path) >= 2:
+            # Sum up distances between consecutive points
+            dists = np.linalg.norm(np.diff(membrane_path, axis=0), axis=1)
+            actual_membrane_length = np.sum(dists)
+        else:
+            actual_membrane_length = 0.0
+        
+        session.logger.info(f"Drawing membrane:")
+        session.logger.info(f"  Cilia length: {length} Å")
+        session.logger.info(f"  Membrane fraction: {membrane_fraction*100:.1f}%")
+        session.logger.info(f"  Membrane length: {actual_membrane_length:.0f} Å ({actual_membrane_length/length*100:.1f}% of cilia)")
+        session.logger.info(f"  Points used: {membrane_points}/{total_points}")
+        session.logger.info(f"  First point Z: {membrane_path[0][2]:.1f}, Last point Z: {membrane_path[-1][2]:.1f}")
+        
+        draw_membrane(
+            session=session,
+            centerline_points=membrane_path,
+            radius=membrane_radius,
+            segments=32, 
+            color=(105, 105, 105, 128),
+            name="membrane"
+        )
+        
     # Draw each doublet microtubule
     session.logger.info(f"Drawing {num_doublets} doublet microtubules...")
     for doublet_info in structure['doublets']:
@@ -131,6 +180,8 @@ def ciliasim(session,
     session.logger.info(f"  Length: {length} Å")
     session.logger.info(f"  Doublets: {num_doublets}")
     session.logger.info(f"  Cilia radius: {cilia_radius} Å")
+    if membrane:
+        session.logger.info(f"  Membrane: {membrane_fraction*100:.1f}% coverage, radius {membrane_radius} Å")
 
 
 def centriolesim(session,
@@ -174,23 +225,23 @@ def centriolesim(session,
     centriole_radius : float
         Radius from center to triplets in Angstroms (default: 1100.0)
     centriole_angle_offset : float
-        Angle offset for triplet orientation in degrees (default: 0.0)
+        Angle offset for triplet orientation in degrees (default: 60.0)
         This controls the A-B-C orientation relative to the radial direction
         
     triplet_a_radius : float
         Radius of the A-tubule (default: 125.0)
     triplet_b_radius : float
-        Radius of the B-tubule (default: 145.0)
+        Radius of the B-tubule (default: 135.0)
     triplet_c_radius : float
-        Radius of the C-tubule (default: 145.0)
+        Radius of the C-tubule (default: 140.0)
     triplet_ab_shift : float
         Radial distance of A and B tubules from triplet centerline (default: 70.0)
     triplet_c_shift : float
-        Radial distance of C tubule from triplet centerline (default: 140.0)
+        Radial distance of C tubule from triplet centerline (default: 200.0)
     triplet_b_length_diff : float
-        Length difference: B shorter than A (default: 250.0)
+        Length difference: B shorter than A (default: 5.0)
     triplet_c_length_diff : float
-        Length difference: C shorter than A (default: 500.0)
+        Length difference: C shorter than A (default: 300.0)
     """
     
     centerline_type = line
@@ -254,6 +305,9 @@ ciliasim_desc = CmdDesc(
         ('num_doublets', IntArg),
         ('cilia_radius', FloatArg),
         ('draw_central_pair', BoolArg),
+        ('membrane', BoolArg),
+        ('membrane_fraction', FloatArg),
+        ('membrane_radius', FloatArg),
         ('doublet_a_radius', FloatArg),
         ('doublet_b_radius', FloatArg),
         ('doublet_shift', FloatArg),
@@ -280,8 +334,8 @@ centriolesim_desc = CmdDesc(
         ('triplet_c_radius', FloatArg),
         ('triplet_ab_shift', FloatArg),
         ('triplet_c_shift', FloatArg),
-        ('triplet_b_length_diff', FloatArg),
-        ('triplet_c_length_diff', FloatArg)
+        ('triplet_b_length_diff', FloatArg),  # FIX: Changed from 'triplet_ab_length_diff'
+        ('triplet_c_length_diff', FloatArg)   # FIX: Changed from 'triplet_bc_length_diff'
     ],
     synopsis='Generate complete centriole structure with triplet microtubules'
 )

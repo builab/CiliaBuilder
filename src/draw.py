@@ -314,10 +314,17 @@ def draw_tubules(session,
             # This logic enables length_diffs when centerline_points is passed
             if length is not None and length_diffs is not None:
                 tubule_length = length + length_diffs[i]
-                
-                # Calculate the number of points to keep based on the interval
-                # Ensure at least 2 points to avoid geometry errors
-                n_keep = max(2, int(np.round(tubule_length / interval)) + 1)
+    
+                # Calculate cumulative arc length along the centerline
+                if len(center_path) >= 2:
+                    segment_lengths = np.linalg.norm(np.diff(center_path, axis=0), axis=1)
+                    cumulative_length = np.concatenate(([0], np.cumsum(segment_lengths)))
+        
+                    # Find the index where cumulative length exceeds tubule_length
+                    n_keep = np.searchsorted(cumulative_length, tubule_length, side='right')
+                    n_keep = max(2, min(n_keep, len(center_path)))  # Ensure valid range
+                else:
+                    n_keep = len(center_path)
 
                 # Truncate the path to the correct length
                 center_path_to_shift = center_path[:n_keep]
@@ -365,95 +372,51 @@ def draw_tubules(session,
     return surfs
 
 
-def draw_mt(session, length=1500, interval=80, radius=125, name="singlet", color=COLOR_A_TUBULE):
+def draw_membrane(session, centerline_points, radius=1100.0, segments=32, 
+                  color=(105, 105, 105, 128), name="membrane"):
     """
-    Draw a single microtubule (singlet) along the centerline.
-    """
-    # Calculate path points along centerline (no shift)
-    path_points = generate_centerline_points(length, interval, start_point=(0, 0, 0))
+    Draw a membrane as an uncapped tube surface.
     
-    # Create tube
-    tube = generate_tube_surface(session, path_points,
-                                 radius=radius,
-                                 segments=32,
-                                 color=color,
-                                 name=name,
-                                 capped=True)
-    if tube is not None:
-        session.logger.info(f"Created singlet \"{name}\" (length={length}, radius={radius})")
-    return tube
-
-
-def draw_doublet(session, length=1500, interval=80, angle=0, 
-                radius_a=125, radius_b=130, shift_distance=70,
-                length_diff=5,
-                name="doublet", color_a=COLOR_A_TUBULE, color_b=COLOR_B_TUBULE):
-    """
-    Draw a microtubule doublet (convenience wrapper for draw_tubules).
-    """
-    return draw_tubules(
-        session=session,
-        length=length,
-        interval=interval,
-        angle=angle,
-        radii=[radius_a, radius_b],
-        shift_distances=[shift_distance, -shift_distance],  # Opposite sides
-        length_diffs=[0, -length_diff],
-        tubule_names=["A", "B"],
-        colors=[color_a, color_b],
-        group_name=name
-    )
-
-
-def draw_cp(session, length=1500, interval=80, angle=0, 
-            radius_a=125, radius_b=125, shift_distance=200,
-            length_diff=0,
-            name="central_pair", color_a=COLOR_CP_TUBULE, color_b=COLOR_CP_TUBULE):
-    """
-    Draw central pair (convenience wrapper for draw_tubules).
-    """
-    return draw_tubules(
-        session=session,
-        length=length,
-        interval=interval,
-        angle=angle,
-        radii=[radius_a, radius_b],
-        shift_distances=[shift_distance, -shift_distance],  # Opposite sides
-        length_diffs=[0, -length_diff],
-        tubule_names=["C1", "C2"],
-        colors=[color_a, color_b],
-        group_name=name
-    )
-
-
-def draw_triplet(session, length=1500, interval=80, angle=0,
-                radii=None, shift_distances=None,
-                length_diffs=None,
-                name="triplet", colors=None):
-    """
-    Draw a microtubule triplet (A, B, C tubules).
-    """
-    if radii is None:
-        radii = [125, 130, 135]
-    if shift_distances is None:
-        shift_distances = [70, 0, -70]
-    if length_diffs is None:
-        length_diffs = [0, -5, -10]
-    if colors is None:
-        colors = [COLOR_A_TUBULE, COLOR_B_TUBULE, COLOR_C_TUBULE]
+    Parameters:
+    -----------
+    session : ChimeraX session
+        The ChimeraX session object
+    centerline_points : numpy.ndarray
+        Array of shape (N, 3) containing the path points for the membrane centerline
+    radius : float
+        Radius of the membrane tube (default: 500.0)
+    segments : int
+        Number of segments around the tube circumference (default: 32)
+    color : tuple
+        RGBA color tuple (0-255 values) (default: semi-transparent gray)
+    name : str
+        Name for the membrane surface (default: "membrane")
     
-    return draw_tubules(
-        session=session,
-        length=length,
-        interval=interval,
-        angle=angle,
-        radii=radii,
-        shift_distances=shift_distances,
-        length_diffs=length_diffs,
-        tubule_names=["A", "B", "C"],
-        colors=colors,
-        group_name=name
+    Returns:
+    --------
+    surf : Surface
+        The created membrane surface model
+    """
+    
+    session.logger.info(f"draw_membrane received {len(centerline_points)} points, Z range: {centerline_points[0][2]:.1f} to {centerline_points[-1][2]:.1f}")
+
+    # Create membrane using generate_tube_surface with capped=False
+    membrane = generate_tube_surface(
+        session, 
+        centerline_points,
+        radius=radius,
+        segments=segments,
+        color=color,
+        name=name,
+        capped=False,  # Key difference: no end caps
+        add_to_session=True  # Add directly to session
     )
+    
+    if membrane is not None:
+        session.logger.info(f"Created membrane \"{name}\" (radius={radius}, {len(centerline_points)} points)")
+    
+    return membrane
+
 
 
 # Example usage:
@@ -461,17 +424,6 @@ def draw_triplet(session, length=1500, interval=80, angle=0,
 # Singlet (single microtubule along centerline)
 draw_mt(session, length=1500, radius=125, name="center_mt")
 
-# Doublet at 0° angle (default X direction)
-draw_doublet(session, length=1500, angle=0)
-
-# Doublet at 45° angle
-draw_doublet(session, length=1500, angle=45)
-
-# Central pair at 90° angle
-draw_cp(session, length=1500, angle=90)
-
-# Triplet at 30° angle
-draw_triplet(session, length=1500, angle=30)
 
 # Custom configuration - 3 tubules all same length
 draw_tubules(session, 
