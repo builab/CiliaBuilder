@@ -1,4 +1,4 @@
-# CiliaBuilder
+# ChimeraX CiliaBuilder
 Only testing internally now. Probably release in 6 months with a lot of more function planned.
 
 ## Installation
