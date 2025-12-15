@@ -27,15 +27,15 @@ centriolesim length 5000 line curve curve_radius 10000
 # Custom triplet configuration
 centriolesim length 5000 num_triplets 12 centriole_radius 1200
 
-PROGRESS
-- First working version
-- 0.2 now drawing cp, doublet, triplet
-
 
 TODO
-- Make membrane.
-- Make membrane with irregular pattern.
+- Make coloring possible for doublet, triplet
+- what about group of group modification?
+- Make a,b different for cilia as well to make central pair longer
+- Make membrane look nicer
+- Can you subtract surface in chimeraX?
 
 DONE
 - Curve and sinusoidal from same direction (Done)
 - Make the UI version
+- Make membrane.

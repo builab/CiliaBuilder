@@ -149,7 +149,7 @@ class CiliaSim(ToolInstance):
         self.membrane_radius_input = QLineEdit("1100.0")
         membrane_param_h_layout.addWidget(self.membrane_radius_input)
 
-        membrane_param_h_layout.addWidget(QLabel("Fraction (Opacity 0-1):"))
+        membrane_param_h_layout.addWidget(QLabel("Fraction (0-1):"))
         self.membrane_fraction_input = QLineEdit("0.8")
         membrane_param_h_layout.addWidget(self.membrane_fraction_input)
         
