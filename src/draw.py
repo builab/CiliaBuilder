@@ -373,10 +373,12 @@ def draw_tubules(session,
     return surfs
 
 
+
 def draw_membrane(session, centerline_points, radius=1100.0, segments=32, 
-                  color=(105, 105, 105, 255), name="membrane"):
+                  color=(105, 105, 105, 255), name="membrane", capped=True,
+                  membrane_thickness=40.0):
     """
-    Draw a membrane as an uncapped tube surface.
+    Draw a double membrane (inner and outer) with optional cylindrical ring caps.
     
     Parameters:
     -----------
@@ -385,38 +387,176 @@ def draw_membrane(session, centerline_points, radius=1100.0, segments=32,
     centerline_points : numpy.ndarray
         Array of shape (N, 3) containing the path points for the membrane centerline
     radius : float
-        Radius of the membrane tube (default: 500.0)
+        Radius of the inner membrane tube (default: 1100.0)
     segments : int
         Number of segments around the tube circumference (default: 32)
     color : tuple
         RGBA color tuple (0-255 values) (default: semi-transparent gray)
     name : str
-        Name for the membrane surface (default: "membrane")
+        Name for the membrane surface group (default: "membrane")
+    capped : bool
+        Whether to add cylindrical ring caps at the ends (default: False)
+    membrane_thickness : float
+        Thickness between inner and outer membranes in Angstroms (default: 40.0)
     
     Returns:
     --------
-    surf : Surface
-        The created membrane surface model
+    surfaces : list
+        List of created membrane surface models [inner, outer, start_cap, end_cap]
     """
     
     session.logger.info(f"draw_membrane received {len(centerline_points)} points, Z range: {centerline_points[0][2]:.1f} to {centerline_points[-1][2]:.1f}")
 
-    # Create membrane using generate_tube_surface with capped=False
-    membrane = generate_tube_surface(
+    surfaces = []
+    
+    # Create inner membrane (uncapped tube)
+    inner_membrane = generate_tube_surface(
         session, 
         centerline_points,
         radius=radius,
         segments=segments,
         color=color,
-        name=name,
-        capped=False,  # Key difference: no end caps
-        add_to_session=False  # Add directly to session
+        name=f"{name}_inner",
+        capped=False,
+        add_to_session=False
     )
     
-    if membrane is not None:
-        session.logger.info(f"Created membrane \"{name}\" (radius={radius}, {len(centerline_points)} points)")
+    if inner_membrane is not None:
+        surfaces.append(inner_membrane)
+        session.logger.info(f"Created inner membrane \"{name}_inner\" (radius={radius})")
     
-    return membrane
+    # Create outer membrane (uncapped tube)
+    outer_radius = radius + membrane_thickness
+    outer_membrane = generate_tube_surface(
+        session, 
+        centerline_points,
+        radius=outer_radius,
+        segments=segments,
+        color=color,
+        name=f"{name}_outer",
+        capped=False,
+        add_to_session=False
+    )
+    
+    if outer_membrane is not None:
+        surfaces.append(outer_membrane)
+        session.logger.info(f"Created outer membrane \"{name}_outer\" (radius={outer_radius})")
+    
+    # Add cylindrical ring caps if requested
+    if capped and len(centerline_points) >= 2:
+        # Start cap (ring at the beginning)
+        start_cap_vertices, start_cap_triangles = create_ring_cap_geometry(
+            center=centerline_points[0],
+            direction=centerline_points[1] - centerline_points[0],
+            inner_radius=radius,
+            outer_radius=outer_radius,
+            segments=segments
+        )
+        
+        if len(start_cap_vertices) > 0:
+            start_cap_normals = calculate_vertex_normals(start_cap_vertices, start_cap_triangles)
+            start_cap = Surface(f"{name}_start_cap", session)
+            start_cap.set_geometry(start_cap_vertices, start_cap_normals, start_cap_triangles)
+            start_cap.color = np.array(color, dtype=np.uint8)
+            surfaces.append(start_cap)
+            session.logger.info(f"Created start cap \"{name}_start_cap\"")
+        
+        # End cap (ring at the end)
+        end_cap_vertices, end_cap_triangles = create_ring_cap_geometry(
+            center=centerline_points[-1],
+            direction=centerline_points[-1] - centerline_points[-2],
+            inner_radius=radius,
+            outer_radius=outer_radius,
+            segments=segments
+        )
+        
+        if len(end_cap_vertices) > 0:
+            end_cap_normals = calculate_vertex_normals(end_cap_vertices, end_cap_triangles)
+            end_cap = Surface(f"{name}_end_cap", session)
+            end_cap.set_geometry(end_cap_vertices, end_cap_normals, end_cap_triangles)
+            end_cap.color = np.array(color, dtype=np.uint8)
+            surfaces.append(end_cap)
+            session.logger.info(f"Created end cap \"{name}_end_cap\"")
+    
+    return surfaces
+
+
+def create_ring_cap_geometry(center, direction, inner_radius, outer_radius, segments=32):
+    """
+    Create a cylindrical ring (annulus) cap geometry.
+    
+    Parameters:
+    -----------
+    center : numpy.ndarray
+        Center point of the ring (shape: (3,))
+    direction : numpy.ndarray
+        Direction vector for the ring normal (shape: (3,))
+    inner_radius : float
+        Inner radius of the ring
+    outer_radius : float
+        Outer radius of the ring
+    segments : int
+        Number of segments around the ring circumference
+    
+    Returns:
+    --------
+    vertices : numpy.ndarray
+        Array of vertex positions
+    triangles : numpy.ndarray
+        Array of triangle indices
+    """
+    # Normalize direction vector
+    direction = direction / np.linalg.norm(direction)
+    
+    # Create orthonormal basis for the ring plane
+    up = np.array([0.0, 1.0, 0.0])
+    if np.linalg.norm(np.cross(direction, up)) < 1e-6:
+        up = np.array([1.0, 0.0, 0.0])
+    
+    normal = np.cross(direction, up)
+    normal = normal / np.linalg.norm(normal)
+    binormal = np.cross(direction, normal)
+    
+    # Generate ring vertices
+    theta = np.linspace(0, 2*np.pi, segments, endpoint=False)
+    vertices = []
+    
+    # Inner ring vertices
+    for angle in theta:
+        x = inner_radius * np.cos(angle)
+        y = inner_radius * np.sin(angle)
+        vertex = center + x * normal + y * binormal
+        vertices.append(vertex)
+    
+    # Outer ring vertices
+    for angle in theta:
+        x = outer_radius * np.cos(angle)
+        y = outer_radius * np.sin(angle)
+        vertex = center + x * normal + y * binormal
+        vertices.append(vertex)
+    
+    vertices = np.array(vertices, dtype=np.float32)
+    
+    # Create triangles connecting inner and outer rings
+    triangles = []
+    for i in range(segments):
+        next_i = (i + 1) % segments
+        
+        # Inner ring index
+        v0 = i
+        v1 = next_i
+        
+        # Outer ring index
+        v2 = segments + i
+        v3 = segments + next_i
+        
+        # Two triangles per quad (facing outward along direction)
+        triangles.append([v0, v2, v1])
+        triangles.append([v1, v2, v3])
+    
+    triangles = np.array(triangles, dtype=np.int32)
+    
+    return vertices, triangles
 
 
 

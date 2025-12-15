@@ -222,7 +222,7 @@ def ciliabuild(session,
         session.logger.info(f"  First point Z: {membrane_path[0][2]:.1f}, Last point Z: {membrane_path[-1][2]:.1f}")
         session.logger.info(f"  First point Z: {membrane_path[0][2]:.1f}, Last point Z: {membrane_path[-1][2]:.1f}")
         
-        membrane_surf = draw_membrane(
+        membrane_surfs = draw_membrane(
             session=session,
             centerline_points=membrane_path,
             radius=membrane_radius,
@@ -230,9 +230,10 @@ def ciliabuild(session,
             color=(105, 105, 105, 255),
             name="Membrane"
         )
-        if membrane_surf:
-            session.models.add([membrane_surf], parent=cilia_root)
-            session.logger.info(f"Added membrane {doublet_info['index']+1}")
+        if membrane_surfs:
+            #session.models.add([membrane_surf], parent=cilia_root)
+            session.models.add_group(membrane_surfs, parent=cilia_root, name="Membrane")
+            session.logger.info(f"Added membrane")
     
     # Add all surfaces as a single cilia group
     #if doublet_surfaces:
