@@ -26,9 +26,9 @@ T_B_RADIUS = 135.0
 T_C_RADIUS = 135.0
 T_SHIFTS = [140.0, 0.0, -160.0] 
 
-class CiliaSim(ToolInstance):
+class CiliaBuilder(ToolInstance):
     """
-    CiliaSim tool for generating cilia and centriole microtubule models
+    CiliaBuilder tool for generating cilia and centriole microtubule models
     """
 
     SESSION_ENDURING = False
@@ -38,7 +38,7 @@ class CiliaSim(ToolInstance):
         super().__init__(session, tool_name)
 
         # Set name displayed on title bar
-        self.display_name = "Cilia/Centriole Sim"
+        self.display_name = "Cilia/Centriole Builder"
         
         self.tool_window = MainToolWindow(self)
         
