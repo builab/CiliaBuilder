@@ -1,30 +1,36 @@
-INSTALLATION
+# CiliaSim or might change to CiliaBuilder later
+Only testing internally now. Release in 6 months with a lot of more function planned.
 
-Download
+## Installation
+
+Clone the repository and install **CiliaSim**:
+
+```bash
 git clone https://github.com/builab/CiliaSim.git
 cd [DownloadFolder]
 devel install CiliaSim
+```
 
-# Simple straight cilia
+### Simple straight cilia
 ciliasim length 15000 cilia_radius 875
 
-# Curved cilia
+### Curved cilia
 ciliasim length 15000 line curve curve_radius 10000
 
-# Sinusoidal cilia
+### Sinusoidal cilia
 ciliasim length 25000 line sinusoidal sine_frequency 1 sine_amplitude 2000
 
-# Custom number of doublets
+### Custom number of doublets
 ciliasim length 5000 num_doublets 12 cilia_radius 1000
 
 
-# Basic centriole
+### Basic centriole
 centriolesim length 5000
 
-# Centriole with custom angle offset
+### Centriole with custom angle offset
 centriolesim length 5000 centriole_angle_offset 45
 
-# Custom triplet configuration
+### Custom triplet configuration
 centriolesim length 5000 num_triplets 12 centriole_radius 1200
 
 
