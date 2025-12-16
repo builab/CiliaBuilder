@@ -36,7 +36,7 @@ centriolebuild length 5000 num_triplets 12 centriole_radius 1200
 
 TODO
 - Pre-calculated tip for Tetrahymena & Primary cilia. (Priority)
-- Make doublet hollow (low priority)
+- Make doublet hollow (low priority) or not viable
 
 DONE
 - Curve and sinusoidal from same direction (Done)
@@ -54,10 +54,4 @@ DONE
 - Generate centriole with offset so it is continuous with cilia
 - Make default_config.py for easy controlling of the data. 0.5.2
 
-
-
-
-
-Default:
-- Always make at least 1 A different in A, B & C
 
