@@ -13,21 +13,8 @@ from Qt.QtCore import Qt
 # Import the command functions from cmd.py
 from .cmd import ciliabuild, centriolebuild 
 
-# Define the optimal sampling interval for smoothness (10 Angstroms)
-MAX_INTERVAL = 20.0 
-
-# Fixed Microtubule Dimensions (kept for reference, but cmd.py handles the actual values)
-# Cilia Doublet
-D_A_RADIUS = 125.0
-D_B_RADIUS = 135.0
-D_SHIFT = 70.0
-CP_RADIUS = 125.0
-CP_SHIFT = 160.0
-# Centriole Triplet
-T_A_RADIUS = 125.0
-T_B_RADIUS = 135.0
-T_C_RADIUS = 135.0
-T_SHIFTS = [140.0, 0.0, -160.0] 
+# Import default_config
+from . import default_config
 
 class CiliaBuilder(ToolInstance):
     """
@@ -83,48 +70,48 @@ class CiliaBuilder(ToolInstance):
         general_group = QGroupBox("General & Centerline Settings")
         general_layout = QGridLayout()
 
-        # Row 0: Total Length
+        # Row 0: Total Length (Starts with CILIA_LENGTH)
         general_layout.addWidget(QLabel("Total Length (Å):"), 0, 0)
-        self.length_input = QLineEdit("15000")
+        self.length_input = QLineEdit(str(default_config.CILIA_LENGTH)) # Use CILIA default
         general_layout.addWidget(self.length_input, 0, 1)
 
-        # Row 1: Structure Radius (Dynamically labeled)
+        # Row 1: Structure Radius (Dynamically labeled, starts with CILIA_RADIUS)
         self.radius_label = QLabel("Doublet Ring Radius (Å):")
         general_layout.addWidget(self.radius_label, 1, 0)
-        self.cilia_radius_input = QLineEdit("875.0")
+        self.cilia_radius_input = QLineEdit(str(default_config.CILIA_RADIUS)) # Use CILIA default
         general_layout.addWidget(self.cilia_radius_input, 1, 1)
         
-        # Row 2: Doublets/Triplets Count (Dynamically labeled)
+        # Row 2: Doublets/Triplets Count (Dynamically labeled, starts with CILIA_NUM_DOUBLETS)
         self.count_label = QLabel("Number of Doublets:")
         general_layout.addWidget(self.count_label, 2, 0)
-        self.num_units_input = QLineEdit("9")
+        self.num_units_input = QLineEdit(str(default_config.CILIA_NUM_DOUBLETS)) # Use CILIA default
         general_layout.addWidget(self.num_units_input, 2, 1)
         
-        # Row 3: Centerline Type (Dropdown)
+        # Row 3: Centerline Type (Dropdown, starts with CILIA_LINE)
         general_layout.addWidget(QLabel("Centerline Type:"), 3, 0)
         self.line_type_combo = QComboBox()
         self.line_type_combo.addItems(['straight', 'curve', 'sinusoidal'])
-        self.line_type_combo.setCurrentText('straight')
+        self.line_type_combo.setCurrentText(default_config.CILIA_LINE) # Use CILIA default
         self.line_type_combo.currentIndexChanged.connect(self._toggle_centerline_inputs)
         general_layout.addWidget(self.line_type_combo, 3, 1)
         
-        # Row 4: Curve Input 
+        # Row 4: Curve Input (Starts with CILIA_CURVE_RADIUS)
         self.curve_radius_label = QLabel("Curve Radius (Å):")
         general_layout.addWidget(self.curve_radius_label, 4, 0)
-        self.curve_radius_input = QLineEdit("10000.0")
+        self.curve_radius_input = QLineEdit(str(default_config.CILIA_CURVE_RADIUS)) # Use CILIA default
         general_layout.addWidget(self.curve_radius_input, 4, 1)
 
-        # Row 5: Sinusoidal Inputs (Combined)
+        # Row 5: Sinusoidal Inputs (Combined, starts with CILIA SINE defaults)
         sine_h_layout = QHBoxLayout()
         
         self.sine_freq_label = QLabel("Sine Frequency:")
         sine_h_layout.addWidget(self.sine_freq_label)
-        self.sine_frequency_input = QLineEdit("2.0")
+        self.sine_frequency_input = QLineEdit(str(default_config.CILIA_SINE_FREQUENCY)) # Use CILIA default
         sine_h_layout.addWidget(self.sine_frequency_input)
         
         self.sine_amp_label = QLabel("Amplitude (Å):")
         sine_h_layout.addWidget(self.sine_amp_label)
-        self.sine_amplitude_input = QLineEdit("2000.0")
+        self.sine_amplitude_input = QLineEdit(str(default_config.CILIA_SINE_AMPLITUDE)) # Use CILIA default
         sine_h_layout.addWidget(self.sine_amplitude_input)
         
         general_layout.addLayout(sine_h_layout, 5, 0, 1, 2) # Span 2 columns
@@ -137,20 +124,24 @@ class CiliaBuilder(ToolInstance):
         self.cilia_group = QGroupBox("Cilia-Specific Parameters (9x2 + 2)")
         cilia_layout = QGridLayout()
         
+        # Helper to convert RGBA tuple to comma-separated string
+        def color_to_string(color_tuple):
+            return ",".join(map(str, color_tuple))
+
         # Row 0: Cilia Tubule Colors (A, B, CP on same line)
         cilia_color_h_layout = QHBoxLayout()
         cilia_color_h_layout.addWidget(QLabel("A-tubule:"))
-        self.cilia_a_color_input = QLineEdit("100,100,255,255")
+        self.cilia_a_color_input = QLineEdit(color_to_string(default_config.CILIA_DOUBLET_A_COLOR))
         self.cilia_a_color_input.setMaximumWidth(120)
         cilia_color_h_layout.addWidget(self.cilia_a_color_input)
         
         cilia_color_h_layout.addWidget(QLabel("B-tubule:"))
-        self.cilia_b_color_input = QLineEdit("100,100,255,255")
+        self.cilia_b_color_input = QLineEdit(color_to_string(default_config.CILIA_DOUBLET_B_COLOR))
         self.cilia_b_color_input.setMaximumWidth(120)
         cilia_color_h_layout.addWidget(self.cilia_b_color_input)
         
         cilia_color_h_layout.addWidget(QLabel("C1/C2:"))
-        self.cilia_cp_color_input = QLineEdit("255,255,100,255")
+        self.cilia_cp_color_input = QLineEdit(color_to_string(default_config.CILIA_CP_COLOR))
         self.cilia_cp_color_input.setMaximumWidth(120)
         cilia_color_h_layout.addWidget(self.cilia_cp_color_input)
         
@@ -159,11 +150,11 @@ class CiliaBuilder(ToolInstance):
         # Row 1: Draw Central Pair and Draw Membrane (Combined)
         draw_h_layout = QHBoxLayout()
         self.draw_cp_check = QCheckBox("Draw Central Pair (C1/C2)")
-        self.draw_cp_check.setChecked(True)
+        self.draw_cp_check.setChecked(default_config.CILIA_DRAW_CENTRAL_PAIR)
         draw_h_layout.addWidget(self.draw_cp_check)
         
         self.draw_membrane_check = QCheckBox("Draw Membrane")
-        self.draw_membrane_check.setChecked(True)
+        self.draw_membrane_check.setChecked(default_config.CILIA_MEMBRANE)
         draw_h_layout.addWidget(self.draw_membrane_check)
         draw_h_layout.addStretch()
         cilia_layout.addLayout(draw_h_layout, 1, 0, 1, 2)
@@ -171,13 +162,13 @@ class CiliaBuilder(ToolInstance):
         # Row 2: Length Differences (A-B and CP-Doublet on same line)
         length_diff_h_layout = QHBoxLayout()
         length_diff_h_layout.addWidget(QLabel("A-B Diff (Å):"))
-        self.cilia_doublet_length_diff_input = QLineEdit("5.0")
+        self.cilia_doublet_length_diff_input = QLineEdit(str(default_config.CILIA_DOUBLET_LENGTH_DIFF))
         self.cilia_doublet_length_diff_input.setToolTip("A-tubule minus B-tubule length")
         self.cilia_doublet_length_diff_input.setMaximumWidth(100)
         length_diff_h_layout.addWidget(self.cilia_doublet_length_diff_input)
 
         length_diff_h_layout.addWidget(QLabel("CP-Doublet Diff (Å):"))
-        self.cilia_cp_doublet_length_diff_input = QLineEdit("0.0")
+        self.cilia_cp_doublet_length_diff_input = QLineEdit(str(default_config.CILIA_CP_DOUBLET_LENGTH_DIFF))
         self.cilia_cp_doublet_length_diff_input.setToolTip("CP minus doublet A-tubule length (positive = CP longer)")
         self.cilia_cp_doublet_length_diff_input.setMaximumWidth(100)
         length_diff_h_layout.addWidget(self.cilia_cp_doublet_length_diff_input)
@@ -187,11 +178,11 @@ class CiliaBuilder(ToolInstance):
         # Row 3: Membrane Radius and Fraction (Combined)
         membrane_param_h_layout = QHBoxLayout()
         membrane_param_h_layout.addWidget(QLabel("Membrane Radius (Å):"))
-        self.membrane_radius_input = QLineEdit("1100.0")
+        self.membrane_radius_input = QLineEdit(str(default_config.CILIA_MEMBRANE_RADIUS))
         membrane_param_h_layout.addWidget(self.membrane_radius_input)
 
         membrane_param_h_layout.addWidget(QLabel("Fraction (0-1):"))
-        self.membrane_fraction_input = QLineEdit("0.5")
+        self.membrane_fraction_input = QLineEdit(str(default_config.CILIA_MEMBRANE_FRACTION))
         membrane_param_h_layout.addWidget(self.membrane_fraction_input)
         
         cilia_layout.addLayout(membrane_param_h_layout, 3, 0, 1, 2)
@@ -207,17 +198,17 @@ class CiliaBuilder(ToolInstance):
         # Row 0: Centriole Tubule Colors (A, B, C on same line)
         centriole_color_h_layout = QHBoxLayout()
         centriole_color_h_layout.addWidget(QLabel("A-tubule:"))
-        self.centriole_a_color_input = QLineEdit("100,100,255,255")
+        self.centriole_a_color_input = QLineEdit(color_to_string(default_config.CENTRIOLE_TRIPLET_A_COLOR))
         self.centriole_a_color_input.setMaximumWidth(120)
         centriole_color_h_layout.addWidget(self.centriole_a_color_input)
         
         centriole_color_h_layout.addWidget(QLabel("B-tubule:"))
-        self.centriole_b_color_input = QLineEdit("100,100,255,255")
+        self.centriole_b_color_input = QLineEdit(color_to_string(default_config.CENTRIOLE_TRIPLET_B_COLOR))
         self.centriole_b_color_input.setMaximumWidth(120)
         centriole_color_h_layout.addWidget(self.centriole_b_color_input)
         
         centriole_color_h_layout.addWidget(QLabel("C-tubule:"))
-        self.centriole_c_color_input = QLineEdit("179,179,255,255")
+        self.centriole_c_color_input = QLineEdit(color_to_string(default_config.CENTRIOLE_TRIPLET_C_COLOR))
         self.centriole_c_color_input.setMaximumWidth(120)
         centriole_color_h_layout.addWidget(self.centriole_c_color_input)
         
@@ -225,18 +216,18 @@ class CiliaBuilder(ToolInstance):
         
         # Row 1: Centriole Angle Offset (Default 60.0)
         centriole_layout.addWidget(QLabel("Triplet Angle Offset (°):"), 1, 0)
-        self.centriole_angle_offset_input = QLineEdit("60.0") 
+        self.centriole_angle_offset_input = QLineEdit(str(default_config.CENTRIOLE_OFFSET_ANGLE)) 
         centriole_layout.addWidget(self.centriole_angle_offset_input, 1, 1)
 
-        # Row 2: Triplet A-B Length Difference (Default 1.0)
-        centriole_layout.addWidget(QLabel("A-B Length Diff (Å):"), 2, 0)
-        self.centriole_ab_length_diff_input = QLineEdit("1.0") 
-        centriole_layout.addWidget(self.centriole_ab_length_diff_input, 2, 1)
+        # Row 2: Triplet B-Length Difference (Default 0.1)
+        centriole_layout.addWidget(QLabel("B Length Diff (Å):"), 2, 0)
+        self.centriole_b_length_diff_input = QLineEdit(str(default_config.CENTRIOLE_TRIPLET_B_LENGTH_DIFF)) # Changed var name
+        centriole_layout.addWidget(self.centriole_b_length_diff_input, 2, 1)
         
-        # Row 3: Triplet B-C Length Difference (Default 300.0)
-        centriole_layout.addWidget(QLabel("B-C Length Diff (Å):"), 3, 0)
-        self.centriole_bc_length_diff_input = QLineEdit("300.0") 
-        centriole_layout.addWidget(self.centriole_bc_length_diff_input, 3, 1)
+        # Row 3: Triplet C-Length Difference (Default 0.2)
+        centriole_layout.addWidget(QLabel("C Length Diff (Å):"), 3, 0)
+        self.centriole_c_length_diff_input = QLineEdit(str(default_config.CENTRIOLE_TRIPLET_C_LENGTH_DIFF)) # Changed var name
+        centriole_layout.addWidget(self.centriole_c_length_diff_input, 3, 1)
         
         self.centriole_group.setLayout(centriole_layout)
         main_layout.addWidget(self.centriole_group)
@@ -283,13 +274,28 @@ class CiliaBuilder(ToolInstance):
         if is_cilia:
             self.radius_label.setText("Doublet Ring Radius (Å):")
             self.count_label.setText("Number of Doublets:")
-            self.length_input.setText("15000")
-            self.num_units_input.setText("9")
+            
+            # Update general settings to Cilia defaults
+            self.length_input.setText(str(default_config.CILIA_LENGTH))
+            self.cilia_radius_input.setText(str(default_config.CILIA_RADIUS))
+            self.num_units_input.setText(str(default_config.CILIA_NUM_DOUBLETS))
+            self.line_type_combo.setCurrentText(default_config.CILIA_LINE)
+            self.curve_radius_input.setText(str(default_config.CILIA_CURVE_RADIUS))
+            self.sine_frequency_input.setText(str(default_config.CILIA_SINE_FREQUENCY))
+            self.sine_amplitude_input.setText(str(default_config.CILIA_SINE_AMPLITUDE))
+            
         else:
             self.radius_label.setText("Triplet Ring Radius (Å):")
             self.count_label.setText("Number of Triplets:")
-            self.length_input.setText("5000")
-            self.num_units_input.setText("9")
+            
+            # Update general settings to Centriole defaults
+            self.length_input.setText(str(default_config.CENTRIOLE_LENGTH))
+            self.cilia_radius_input.setText(str(default_config.CENTRIOLE_RADIUS))
+            self.num_units_input.setText(str(default_config.CENTRIOLE_NUM_TRIPLETS))
+            self.line_type_combo.setCurrentText(default_config.CENTRIOLE_LINE)
+            self.curve_radius_input.setText(str(default_config.CENTRIOLE_CURVE_RADIUS))
+            self.sine_frequency_input.setText(str(default_config.CENTRIOLE_SINE_FREQUENCY))
+            self.sine_amplitude_input.setText(str(default_config.CENTRIOLE_SINE_AMPLITUDE))
         
         # Toggle Specific Groups
         self.cilia_group.setVisible(is_cilia)
@@ -408,9 +414,13 @@ class CiliaBuilder(ToolInstance):
                 self.session.logger.info(f"Centriole colors - A: {centriole_a_color}, B: {centriole_b_color}, C: {centriole_c_color}")
                 
                 # Centriole-specific inputs
-                angle_offset = float(self.centriole_angle_offset_input.text())
-                ab_length_diff = float(self.centriole_ab_length_diff_input.text())
-                bc_length_diff = float(self.centriole_bc_length_diff_input.text())
+                angle_offset = default_config.CILIA_OFFSET_ANGLE - float(self.centriole_angle_offset_input.text())
+                # NOTE: The UI labels in tool.py use "A-B Length Diff" and "B-C Length Diff" for different parameters
+                # The Centriole Triplet B and C length differences in cmd.py are `triplet_b_length_diff` and `triplet_c_length_diff`
+                # which correspond to B and C being shorter than A at the END.
+                # Assuming the user meant to map the UI fields to these two parameters:
+                b_length_diff = float(self.centriole_b_length_diff_input.text()) # Previously ab_length_diff_input
+                c_length_diff = float(self.centriole_c_length_diff_input.text()) # Previously bc_length_diff_input
                 
                 # Call the command function and get the returned model
                 new_model = centriolebuild(
@@ -423,8 +433,9 @@ class CiliaBuilder(ToolInstance):
                     num_triplets=num_units,
                     centriole_radius=ring_radius,
                     centriole_angle_offset=angle_offset,
-                    triplet_b_length_diff=ab_length_diff,
-                    triplet_c_length_diff=bc_length_diff,
+                    # NOTE: Passing the UI inputs to the Centriole command's length difference parameters:
+                    triplet_b_length_diff=b_length_diff,
+                    triplet_c_length_diff=c_length_diff,
                     triplet_a_color=centriole_a_color,
                     triplet_b_color=centriole_b_color,
                     triplet_c_color=centriole_c_color

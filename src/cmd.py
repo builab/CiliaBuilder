@@ -7,37 +7,38 @@ from chimerax.core.models import Surface
 from .curve import generate_cilia_structure, get_doublet_centerline
 from .draw import draw_tubules, draw_membrane
 
-# Define the optimal sampling interval for smoothness (must match curve.py)
-MAX_INTERVAL = 20.0 # 10 Angstroms interval for centerline points
-CILIA_OFFSET_ANGLE = 90.0 # Offset angle for cilia doublets
-Z_OFFSET_END = 2*MAX_INTERVAL # Offset to draw centriole & cilia
+# Import default value from default_config.py
+from . import default_config
+
+
 
 
 def ciliabuild(session, 
-            length=15000, 
-            line='straight', # Simplified from centerline_type
-            curve_radius=10000.0, 
-            sine_frequency=2.0, sine_amplitude=500.0,
+            length=default_config.CILIA_LENGTH, 
+            line=default_config.CILIA_LINE,
+            curve_radius=default_config.CILIA_CURVE_RADIUS, 
+            sine_frequency=default_config.CILIA_SINE_FREQUENCY, 
+            sine_amplitude=default_config.CILIA_SINE_AMPLITUDE,
             # Cilia Structure Defaults
-            num_doublets=9, 
-            cilia_radius=875.0,
-            draw_central_pair=True,
-            membrane=True,
-            membrane_fraction=0.8,
-            membrane_radius=1100,
+            num_doublets=default_config.CILIA_NUM_DOUBLETS, 
+            cilia_radius=default_config.CILIA_RADIUS,
+            draw_central_pair=default_config.CILIA_DRAW_CENTRAL_PAIR,
+            membrane=default_config.CILIA_MEMBRANE,
+            membrane_fraction=default_config.CILIA_MEMBRANE_FRACTION,
+            membrane_radius=default_config.CILIA_MEMBRANE_RADIUS,
             # Doublet Geometry Defaults
-            doublet_a_radius=125.0, # A-tubule radius
-            doublet_b_radius=135.0, # B-tubule radius
-            doublet_shift=70.0,     # A/B tubule shift from doublet centerline
-            doublet_length_diff=5.0, # Length difference between A and B tubules (A - B)
-            cp_doublet_length_diff=0.0, # Length difference between CP and doublet (CP - doublet, positive means CP is longer)
+            doublet_a_radius=default_config.CILIA_DOUBLET_A_RADIUS,
+            doublet_b_radius=default_config.CILIA_DOUBLET_B_RADIUS,
+            doublet_shift=default_config.CILIA_DOUBLET_SHIFT,
+            doublet_length_diff=default_config.CILIA_DOUBLET_LENGTH_DIFF,
+            cp_doublet_length_diff=default_config.CILIA_CP_DOUBLET_LENGTH_DIFF,
             # Central Pair Geometry Defaults
-            cp_radius=125.0,        # C1/C2 tubule radius
-            cp_shift=160.0,          # C1/C2 shift distance from cilia center
+            cp_radius=default_config.CILIA_CP_RADIUS,
+            cp_shift=default_config.CILIA_CP_SHIFT,
             # Color parameters
-            doublet_a_color=(100, 100, 255, 255),
-            doublet_b_color=(100, 100, 255, 255),
-            cp_color=(255, 255, 100, 255)
+            doublet_a_color=default_config.CILIA_DOUBLET_A_COLOR,
+            doublet_b_color=default_config.CILIA_DOUBLET_B_COLOR,
+            cp_color=default_config.CILIA_CP_COLOR
             ):
     """
     Generate and draw a complete cilia structure with doublet microtubules.
@@ -162,9 +163,9 @@ def ciliabuild(session,
         a_surfs = draw_tubules(
             session=session,
             length=None,
-            interval=MAX_INTERVAL,
+            interval=default_config.MAX_INTERVAL,
             centerline_points=doublet_centerline_a,
-            angle=doublet_info['angle'] + CILIA_OFFSET_ANGLE,
+            angle=doublet_info['angle'] + default_config.CILIA_OFFSET_ANGLE,
             radii=[doublet_a_radius],
             shift_distances=[-doublet_shift],
             length_diffs=None,
@@ -180,9 +181,9 @@ def ciliabuild(session,
         b_surfs = draw_tubules(
             session=session,
             length=None,
-            interval=MAX_INTERVAL,
+            interval=default_config.MAX_INTERVAL,
             centerline_points=doublet_centerline_b,
-            angle=doublet_info['angle'] + CILIA_OFFSET_ANGLE,
+            angle=doublet_info['angle'] + default_config.CILIA_OFFSET_ANGLE,
             radii=[doublet_b_radius],
             shift_distances=[doublet_shift],
             length_diffs=None,
@@ -203,7 +204,7 @@ def ciliabuild(session,
         cp_surfs = draw_tubules(
             session=session,
             length=None,  # Use full centerline
-            interval=MAX_INTERVAL,
+            interval=default_config.MAX_INTERVAL,
             centerline_points=structure['centerline'],
             angle=0,
             radii=[cp_radius, cp_radius],
@@ -274,28 +275,29 @@ def ciliabuild(session,
 
 
 def centriolebuild(session,
-                length=5000,
-                line='straight',
-                curve_radius=10000.0,
-                sine_frequency=2.0, sine_amplitude=500.0,
+                length=default_config.CENTRIOLE_LENGTH,
+                line=default_config.CENTRIOLE_LINE,
+                curve_radius=default_config.CENTRIOLE_CURVE_RADIUS,
+                sine_frequency=default_config.CENTRIOLE_SINE_FREQUENCY,
+                sine_amplitude=default_config.CENTRIOLE_SINE_AMPLITUDE,
                 # Centriole Structure Defaults
-                num_triplets=9,
-                centriole_radius=1100.0,
-                centriole_angle_offset=60.0,  # Tunable angle offset for triplets
+                num_triplets=default_config.CENTRIOLE_NUM_TRIPLETS,
+                centriole_radius=default_config.CENTRIOLE_RADIUS,
+                centriole_angle_offset=default_config.CILIA_OFFSET_ANGLE - default_config.CENTRIOLE_OFFSET_ANGLE,
                 # Triplet Geometry Defaults
-                triplet_a_radius=125.0,
-                triplet_b_radius=135.0,
-                triplet_c_radius=135.0,
-                triplet_ab_shift=70.0,  # A and B shift from triplet centerline
-                triplet_c_shift=200.0,   # C shift from triplet centerline
-                triplet_b_length_diff=0.1,  # B shorter than A at END
-                triplet_c_length_diff=0.2,   # C shorter than A at END
+                triplet_a_radius=default_config.CENTRIOLE_TRIPLET_A_RADIUS,
+                triplet_b_radius=default_config.CENTRIOLE_TRIPLET_B_RADIUS,
+                triplet_c_radius=default_config.CENTRIOLE_TRIPLET_C_RADIUS,
+                triplet_ab_shift=default_config.CENTRIOLE_TRIPLET_AB_SHIFT,
+                triplet_c_shift=default_config.CENTRIOLE_TRIPLET_C_SHIFT,
+                triplet_b_length_diff=default_config.CENTRIOLE_TRIPLET_B_LENGTH_DIFF,
+                triplet_c_length_diff=default_config.CENTRIOLE_TRIPLET_C_LENGTH_DIFF,
                 # NEW PARAMETER FOR ALIGNMENT
-                z_offset_end=20.0,  # Target Z-coordinate for the end of the centriole (to align with cilia base, default 20.0)
+                z_offset_end=default_config.CENTRIOLE_Z_OFFSET_END,
                 # Color parameters
-                triplet_a_color=(100, 100, 255, 255),
-                triplet_b_color=(100, 100, 255, 255),
-                triplet_c_color=(179, 179, 255, 255)
+                triplet_a_color=default_config.CENTRIOLE_TRIPLET_A_COLOR,
+                triplet_b_color=default_config.CENTRIOLE_TRIPLET_B_COLOR,
+                triplet_c_color=default_config.CENTRIOLE_TRIPLET_C_COLOR
                 ):
     """
     Generate and draw a complete centriole structure with triplet microtubules.
@@ -330,9 +332,9 @@ def centriolebuild(session,
     triplet_c_radius : float
         Radius of the C-tubule (default: 135.0)
     triplet_ab_shift : float
-        Radial distance of A and B tubules from triplet centerline (default: 70.0)
+        Radial distance of A and B tubules from triplet centerline (default: 140.0)
     triplet_c_shift : float
-        Radial distance of C tubule from triplet centerline (default: 200.0)
+        Radial distance of C tubule from triplet centerline (default: -160.0)
     triplet_b_length_diff : float
         Length difference: B shorter than A at the END (default: 0.1)
     triplet_c_length_diff : float
@@ -427,7 +429,7 @@ def centriolebuild(session,
         a_surfs = draw_tubules(
             session=session,
             length=None,
-            interval=MAX_INTERVAL,
+            interval=default_config.MAX_INTERVAL,
             centerline_points=triplet_centerline_a,
             angle=triplet_info['angle'] + centriole_angle_offset,
             radii=[triplet_a_radius],
@@ -445,7 +447,7 @@ def centriolebuild(session,
         b_surfs = draw_tubules(
             session=session,
             length=None,
-            interval=MAX_INTERVAL,
+            interval=default_config.MAX_INTERVAL,
             centerline_points=triplet_centerline_b,
             angle=triplet_info['angle'] + centriole_angle_offset,
             radii=[triplet_b_radius],
@@ -463,7 +465,7 @@ def centriolebuild(session,
         c_surfs = draw_tubules(
             session=session,
             length=None,
-            interval=MAX_INTERVAL,
+            interval=default_config.MAX_INTERVAL,
             centerline_points=triplet_centerline_c,
             angle=triplet_info['angle'] + centriole_angle_offset,
             radii=[triplet_c_radius],

@@ -35,7 +35,6 @@ centriolebuild length 5000 num_triplets 12 centriole_radius 1200
 
 
 TODO
-- Remove updated "Centriole Model generated successfully ..." and put into logger. (Easy)
 - Pre-calculated tip for Tetrahymena & Primary cilia. (Priority)
 - Make doublet hollow (low priority)
 
@@ -53,6 +52,7 @@ DONE
 - Make coloring possible for doublet, triplet. 0.4.7
 - Make a,b different for cilia as well to make central pair longer 0.4.8
 - Generate centriole with offset so it is continuous with cilia
+- Make default_config.py for easy controlling of the data. 0.5.2
 
 
 
