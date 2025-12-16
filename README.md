@@ -7,7 +7,6 @@ Clone the repository and install **CiliaBuilder**:
 
 ```bash
 git clone https://github.com/builab/CiliaBuilder.git
-cd [DownloadFolder]
 devel install CiliaBuilder
 ```
 
