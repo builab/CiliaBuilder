@@ -186,7 +186,7 @@ def ciliabuild(session,
             shift_distances=[cp_shift, -cp_shift],
             length_diffs=None,
             tubule_names=["C1", "C2"],
-            colors=[(100, 255, 255, 255), (100, 255, 255, 255)],
+            colors=[(255, 255, 100, 255), (255, 255, 100, 255)],
             group_name="central_pair"
         )
         session.models.add_group(cp_surfs, parent=cilia_root, name="Central Pair")
@@ -386,7 +386,7 @@ def centriolebuild(session,
             shift_distances=[-triplet_ab_shift],
             length_diffs=None,
             tubule_names=[f"A_tubule"],
-            colors=[(100, 255, 255, 255)],
+            colors=[(100, 100, 255, 255)],
             group_name=f"A_tubule",
             add_to_session=False
         )
@@ -404,7 +404,7 @@ def centriolebuild(session,
             shift_distances=[triplet_ab_shift],
             length_diffs=None,
             tubule_names=[f"B_tubule"],
-            colors=[(100, 255, 255, 255)],
+            colors=[(100, 100, 255, 255)],
             group_name=f"B_tubule",
             add_to_session=False
         )
@@ -422,7 +422,7 @@ def centriolebuild(session,
             shift_distances=[triplet_c_shift],
             length_diffs=None,
             tubule_names=[f"C_tubule"],
-            colors=[(100, 100, 255, 255)],
+            colors=[(179, 179, 255, 255)],
             group_name=f"C_tubule",
             add_to_session=False
         )
