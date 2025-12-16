@@ -4,7 +4,6 @@ from chimerax.core.tools import ToolInstance
 from chimerax.core.commands import run
 from chimerax.core.models import Model
 
-
 from chimerax.ui import MainToolWindow
 from Qt.QtWidgets import (QVBoxLayout, QHBoxLayout, QGridLayout,
                           QWidget, QLabel, QLineEdit, QPushButton,
@@ -20,7 +19,7 @@ MAX_INTERVAL = 20.0
 # Fixed Microtubule Dimensions (kept for reference, but cmd.py handles the actual values)
 # Cilia Doublet
 D_A_RADIUS = 125.0
-D_B_RADIUS = 140.0
+D_B_RADIUS = 135.0
 D_SHIFT = 70.0
 CP_RADIUS = 125.0
 CP_SHIFT = 160.0
@@ -100,27 +99,22 @@ class CiliaBuilder(ToolInstance):
         general_layout.addWidget(self.count_label, 2, 0)
         self.num_units_input = QLineEdit("9")
         general_layout.addWidget(self.num_units_input, 2, 1)
-
-        # Row 3: Doublet/Triplet Color (NOTE: This is not used by cmd.py's logic)
-        general_layout.addWidget(QLabel("MT Color (R,G,B,A):"), 3, 0)
-        self.color_input = QLineEdit("100,100,255,255")
-        general_layout.addWidget(self.color_input, 3, 1)
         
-        # Row 4: Centerline Type (Dropdown)
-        general_layout.addWidget(QLabel("Centerline Type:"), 4, 0)
+        # Row 3: Centerline Type (Dropdown)
+        general_layout.addWidget(QLabel("Centerline Type:"), 3, 0)
         self.line_type_combo = QComboBox()
         self.line_type_combo.addItems(['straight', 'curve', 'sinusoidal'])
         self.line_type_combo.setCurrentText('straight')
         self.line_type_combo.currentIndexChanged.connect(self._toggle_centerline_inputs)
-        general_layout.addWidget(self.line_type_combo, 4, 1)
+        general_layout.addWidget(self.line_type_combo, 3, 1)
         
-        # Row 5: Curve Input 
+        # Row 4: Curve Input 
         self.curve_radius_label = QLabel("Curve Radius (Å):")
-        general_layout.addWidget(self.curve_radius_label, 5, 0)
+        general_layout.addWidget(self.curve_radius_label, 4, 0)
         self.curve_radius_input = QLineEdit("10000.0")
-        general_layout.addWidget(self.curve_radius_input, 5, 1)
+        general_layout.addWidget(self.curve_radius_input, 4, 1)
 
-        # Row 6: Sinusoidal Inputs (Combined)
+        # Row 5: Sinusoidal Inputs (Combined)
         sine_h_layout = QHBoxLayout()
         
         self.sine_freq_label = QLabel("Sine Frequency:")
@@ -133,7 +127,7 @@ class CiliaBuilder(ToolInstance):
         self.sine_amplitude_input = QLineEdit("2000.0")
         sine_h_layout.addWidget(self.sine_amplitude_input)
         
-        general_layout.addLayout(sine_h_layout, 6, 0, 1, 2) # Span 2 columns
+        general_layout.addLayout(sine_h_layout, 5, 0, 1, 2) # Span 2 columns
 
         general_group.setLayout(general_layout)
         main_layout.addWidget(general_group)
@@ -142,6 +136,25 @@ class CiliaBuilder(ToolInstance):
         # --- 2. Cilia-Specific Group ---
         self.cilia_group = QGroupBox("Cilia-Specific Parameters (9x2 + 2)")
         cilia_layout = QGridLayout()
+        
+        # Row 0: Cilia Tubule Colors (A, B, CP on same line)
+        cilia_color_h_layout = QHBoxLayout()
+        cilia_color_h_layout.addWidget(QLabel("A-tubule:"))
+        self.cilia_a_color_input = QLineEdit("100,100,255,255")
+        self.cilia_a_color_input.setMaximumWidth(120)
+        cilia_color_h_layout.addWidget(self.cilia_a_color_input)
+        
+        cilia_color_h_layout.addWidget(QLabel("B-tubule:"))
+        self.cilia_b_color_input = QLineEdit("100,100,255,255")
+        self.cilia_b_color_input.setMaximumWidth(120)
+        cilia_color_h_layout.addWidget(self.cilia_b_color_input)
+        
+        cilia_color_h_layout.addWidget(QLabel("C1/C2:"))
+        self.cilia_cp_color_input = QLineEdit("255,255,100,255")
+        self.cilia_cp_color_input.setMaximumWidth(120)
+        cilia_color_h_layout.addWidget(self.cilia_cp_color_input)
+        
+        cilia_layout.addLayout(cilia_color_h_layout, 0, 0, 1, 2)
         
         # Row 1: Draw Central Pair and Draw Membrane (Combined)
         draw_h_layout = QHBoxLayout()
@@ -180,6 +193,25 @@ class CiliaBuilder(ToolInstance):
         # --- 3. Centriole-Specific Group ---
         self.centriole_group = QGroupBox("Centriole-Specific Parameters (9x3)")
         centriole_layout = QGridLayout()
+        
+        # Row 0: Centriole Tubule Colors (A, B, C on same line)
+        centriole_color_h_layout = QHBoxLayout()
+        centriole_color_h_layout.addWidget(QLabel("A-tubule:"))
+        self.centriole_a_color_input = QLineEdit("100,100,255,255")
+        self.centriole_a_color_input.setMaximumWidth(120)
+        centriole_color_h_layout.addWidget(self.centriole_a_color_input)
+        
+        centriole_color_h_layout.addWidget(QLabel("B-tubule:"))
+        self.centriole_b_color_input = QLineEdit("100,100,255,255")
+        self.centriole_b_color_input.setMaximumWidth(120)
+        centriole_color_h_layout.addWidget(self.centriole_b_color_input)
+        
+        centriole_color_h_layout.addWidget(QLabel("C-tubule:"))
+        self.centriole_c_color_input = QLineEdit("179,179,255,255")
+        self.centriole_c_color_input.setMaximumWidth(120)
+        centriole_color_h_layout.addWidget(self.centriole_c_color_input)
+        
+        centriole_layout.addLayout(centriole_color_h_layout, 0, 0, 1, 2)
         
         # Row 1: Centriole Angle Offset (Default 60.0)
         centriole_layout.addWidget(QLabel("Triplet Angle Offset (°):"), 1, 0)
@@ -319,6 +351,13 @@ class CiliaBuilder(ToolInstance):
             if is_cilia:
                 # --- CILIA (9x2 + 2) Logic - Call ciliabuild ---
                 
+                # Parse cilia colors
+                cilia_a_color = self._parse_color(self.cilia_a_color_input.text())
+                cilia_b_color = self._parse_color(self.cilia_b_color_input.text())
+                cilia_cp_color = self._parse_color(self.cilia_cp_color_input.text())
+                
+                self.session.logger.info(f"Cilia colors - A: {cilia_a_color}, B: {cilia_b_color}, CP: {cilia_cp_color}")
+                
                 # Cilia-specific inputs
                 draw_central_pair = self.draw_cp_check.isChecked()
                 should_draw_membrane = self.draw_membrane_check.isChecked() 
@@ -341,10 +380,20 @@ class CiliaBuilder(ToolInstance):
                     membrane_radius=membrane_radius,
                     membrane_fraction=membrane_fraction,
                     doublet_length_diff=doublet_length_diff,
+                    doublet_a_color=cilia_a_color,
+                    doublet_b_color=cilia_b_color,
+                    cp_color=cilia_cp_color
                 )
                 
             else:
                 # --- CENTRIOLE (9x3) Logic - Call centriolebuild ---
+                
+                # Parse centriole colors
+                centriole_a_color = self._parse_color(self.centriole_a_color_input.text())
+                centriole_b_color = self._parse_color(self.centriole_b_color_input.text())
+                centriole_c_color = self._parse_color(self.centriole_c_color_input.text())
+                
+                self.session.logger.info(f"Centriole colors - A: {centriole_a_color}, B: {centriole_b_color}, C: {centriole_c_color}")
                 
                 # Centriole-specific inputs
                 angle_offset = float(self.centriole_angle_offset_input.text())
@@ -363,7 +412,10 @@ class CiliaBuilder(ToolInstance):
                     centriole_radius=ring_radius,
                     centriole_angle_offset=angle_offset,
                     triplet_b_length_diff=ab_length_diff,
-                    triplet_c_length_diff=bc_length_diff
+                    triplet_c_length_diff=bc_length_diff,
+                    triplet_a_color=centriole_a_color,
+                    triplet_b_color=centriole_b_color,
+                    triplet_c_color=centriole_c_color
                 )
             
             # --- 2. Post-Generation Tracking ---

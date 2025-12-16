@@ -1,6 +1,6 @@
 # vim: set expandtab shiftwidth=4 softtabstop=4:
 
-from chimerax.core.commands import CmdDesc, IntArg, FloatArg, StringArg, BoolArg
+from chimerax.core.commands import CmdDesc, IntArg, FloatArg, StringArg, BoolArg, Color8Arg
 
 import numpy as np
 from chimerax.core.models import Surface
@@ -31,7 +31,11 @@ def ciliabuild(session,
             doublet_length_diff=250.0, # Length difference between A and B tubules (A - B)
             # Central Pair Geometry Defaults
             cp_radius=125.0,        # C1/C2 tubule radius
-            cp_shift=160.0          # C1/C2 shift distance from cilia center
+            cp_shift=160.0,          # C1/C2 shift distance from cilia center
+            # Color parameters
+            doublet_a_color=(100, 100, 255, 255),
+            doublet_b_color=(100, 100, 255, 255),
+            cp_color=(255, 255, 100, 255)
             ):
     """
     Generate and draw a complete cilia structure with doublet microtubules.
@@ -77,6 +81,13 @@ def ciliabuild(session,
         Radius of central pair (C1/C2) tubules (default: 125.0)
     cp_shift : float
         Distance of C1/C2 tubules from the cilia center line (default: 160.0)
+    
+    doublet_a_color : tuple
+        RGBA color for A-tubules (default: (100, 100, 255, 255))
+    doublet_b_color : tuple
+        RGBA color for B-tubules (default: (100, 100, 255, 255))
+    cp_color : tuple
+        RGBA color for central pair tubules (default: (255, 255, 100, 255))
         
     """
     
@@ -145,7 +156,7 @@ def ciliabuild(session,
             shift_distances=[-doublet_shift],
             length_diffs=None,
             tubule_names=[f"A_tubule"],
-            colors=[(100, 100, 255, 255)],
+            colors=[doublet_a_color],
             group_name=f"A_tubule",
             add_to_session=False  # Don't add yet
         )
@@ -163,7 +174,7 @@ def ciliabuild(session,
             shift_distances=[doublet_shift],
             length_diffs=None,
             tubule_names=[f"B_tubule"],
-            colors=[(100, 100, 255, 255)],
+            colors=[doublet_b_color],
             group_name=f"B_tubule",
             add_to_session=False  # Don't add yet
         )
@@ -186,7 +197,7 @@ def ciliabuild(session,
             shift_distances=[cp_shift, -cp_shift],
             length_diffs=None,
             tubule_names=["C1", "C2"],
-            colors=[(255, 255, 100, 255), (255, 255, 100, 255)],
+            colors=[cp_color, cp_color],
             group_name="central_pair"
         )
         session.models.add_group(cp_surfs, parent=cilia_root, name="Central Pair")
@@ -221,7 +232,6 @@ def ciliabuild(session,
         session.logger.info(f"  Membrane length: {actual_membrane_length:.0f} Å ({actual_membrane_length/length*100:.1f}% of cilia)")
         session.logger.info(f"  Points used: {membrane_points}/{total_points}")
         session.logger.info(f"  First point Z: {membrane_path[0][2]:.1f}, Last point Z: {membrane_path[-1][2]:.1f}")
-        session.logger.info(f"  First point Z: {membrane_path[0][2]:.1f}, Last point Z: {membrane_path[-1][2]:.1f}")
         
         membrane_surfs = draw_membrane(
             session=session,
@@ -232,12 +242,11 @@ def ciliabuild(session,
             name="Membrane"
         )
         if membrane_surfs:
-            #session.models.add([membrane_surf], parent=cilia_root)
             session.models.add_group(membrane_surfs, parent=cilia_root, name="Membrane")
             session.logger.info(f"Added membrane")
     
     # Get the model ID and update the name
-    model_id = cilia_root.id_string  # This gives you something like "1" or "1.2"
+    model_id = cilia_root.id_string
     cilia_root.name = f"Cilia {model_id}"
     
     session.logger.info(f"Cilia model generated successfully!")
@@ -268,6 +277,10 @@ def centriolebuild(session,
                 triplet_c_shift=200.0,   # C shift from triplet centerline
                 triplet_b_length_diff=0.1,  # B shorter than A at END
                 triplet_c_length_diff=0.2,   # C shorter than A at END
+                # Color parameters
+                triplet_a_color=(100, 100, 255, 255),
+                triplet_b_color=(100, 100, 255, 255),
+                triplet_c_color=(179, 179, 255, 255)
                 ):
     """
     Generate and draw a complete centriole structure with triplet microtubules.
@@ -309,6 +322,13 @@ def centriolebuild(session,
         Length difference: B shorter than A at the END (default: 0.1)
     triplet_c_length_diff : float
         Length difference: C shorter than A at the END (default: 0.2)
+    
+    triplet_a_color : tuple
+        RGBA color for A-tubules (default: (100, 100, 255, 255))
+    triplet_b_color : tuple
+        RGBA color for B-tubules (default: (100, 100, 255, 255))
+    triplet_c_color : tuple
+        RGBA color for C-tubules (default: (179, 179, 255, 255))
     """
     
     centerline_type = line
@@ -352,7 +372,6 @@ def centriolebuild(session,
         # - Find START index (offset from beginning for visual separation)
         idx_b_start = 1
         
-        
         # - Find END index (shortened from end)
         target_b_length = total_triplet_length - triplet_b_length_diff
         idx_b_end = np.searchsorted(triplet_cumulative_length, target_b_length, side='right')
@@ -386,7 +405,7 @@ def centriolebuild(session,
             shift_distances=[-triplet_ab_shift],
             length_diffs=None,
             tubule_names=[f"A_tubule"],
-            colors=[(100, 100, 255, 255)],
+            colors=[triplet_a_color],
             group_name=f"A_tubule",
             add_to_session=False
         )
@@ -404,7 +423,7 @@ def centriolebuild(session,
             shift_distances=[triplet_ab_shift],
             length_diffs=None,
             tubule_names=[f"B_tubule"],
-            colors=[(100, 100, 255, 255)],
+            colors=[triplet_b_color],
             group_name=f"B_tubule",
             add_to_session=False
         )
@@ -422,7 +441,7 @@ def centriolebuild(session,
             shift_distances=[triplet_c_shift],
             length_diffs=None,
             tubule_names=[f"C_tubule"],
-            colors=[(179, 179, 255, 255)],
+            colors=[triplet_c_color],
             group_name=f"C_tubule",
             add_to_session=False
         )
@@ -435,7 +454,7 @@ def centriolebuild(session,
             session.logger.info(f"Added triplet {triplet_info['index']+1} to 'Centriole' group")
     
     # Get the model ID and update the name
-    model_id = centriole_root.id_string  # This gives you something like "1" or "1.2"
+    model_id = centriole_root.id_string
     centriole_root.name = f"Centriole {model_id}"
     
     session.logger.info(f"Centriole model generated successfully!")
@@ -467,7 +486,10 @@ ciliabuild_desc = CmdDesc(
         ('doublet_shift', FloatArg),
         ('doublet_length_diff', FloatArg),
         ('cp_radius', FloatArg),
-        ('cp_shift', FloatArg)
+        ('cp_shift', FloatArg),
+        ('doublet_a_color', Color8Arg),
+        ('doublet_b_color', Color8Arg),
+        ('cp_color', Color8Arg)
     ],
     synopsis='Generate complete cilia structure with customizable geometry'
 )
@@ -489,7 +511,10 @@ centriolebuild_desc = CmdDesc(
         ('triplet_ab_shift', FloatArg),
         ('triplet_c_shift', FloatArg),
         ('triplet_b_length_diff', FloatArg),
-        ('triplet_c_length_diff', FloatArg)
+        ('triplet_c_length_diff', FloatArg),
+        ('triplet_a_color', Color8Arg),
+        ('triplet_b_color', Color8Arg),
+        ('triplet_c_color', Color8Arg)
     ],
     synopsis='Generate complete centriole structure with triplet microtubules'
 )
