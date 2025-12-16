@@ -3,13 +3,26 @@ Only testing internally now. Probably release in 6 months with a lot of more fun
 
 ## Installation
 
-Clone the repository and install **CiliaBuilder**:
+Download the repository or git clone and install **CiliaBuilder**:
 
+Download or git clone
 ```bash
 git clone https://github.com/builab/CiliaBuilder.git
-cd [DownloadFolder]
-devel install CiliaBuilder
 ```
+
+If you download, then unzip
+
+Open ChimeraX
+```bash
+devel install [path_to_CiliaBuilder_folder]
+```
+
+## Interface usage
+Tools > High-order structure > Cilia Builder
+
+Then enjoy
+
+## Commandline usage (NOT RECOMMENDED)
 
 ### Simple straight cilia
 ciliabuild length 15000 cilia_radius 875
