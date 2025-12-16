@@ -77,6 +77,7 @@ def ciliabuild(session,
         Radius of central pair (C1/C2) tubules (default: 125.0)
     cp_shift : float
         Distance of C1/C2 tubules from the cilia center line (default: 160.0)
+        
     """
     
     centerline_type = line 
@@ -171,9 +172,7 @@ def ciliabuild(session,
         
         session.models.add_group(doublet_surfs, parent=cilia_root, name=f"DMT{doublet_info['index']+1}")
         session.logger.info(f"Added doublet {doublet_info['index']+1}")
-
-
-            
+       
     # Draw central pair if requested
     if draw_central_pair:
         session.logger.info("Drawing central pair (C1, C2)...")
@@ -193,7 +192,6 @@ def ciliabuild(session,
         session.models.add_group(cp_surfs, parent=cilia_root, name="Central Pair")
         session.logger.info(f"Added central pair")
 
-    
     # Draw membrane if requested
     if membrane:
         # Calculate membrane path - use only the fraction from the base
@@ -238,10 +236,9 @@ def ciliabuild(session,
             session.models.add_group(membrane_surfs, parent=cilia_root, name="Membrane")
             session.logger.info(f"Added membrane")
     
-    # Add all surfaces as a single cilia group
-    #if doublet_surfaces:
-    #    session.models.add_group(doublet_surfaces, parent=cilia_root, name="Doublet")
-    #    session.logger.info(f"Added {len(all_surfaces)} surfaces to 'cilia' group")
+    # Get the model ID and update the name
+    model_id = cilia_root.id_string  # This gives you something like "1" or "1.2"
+    cilia_root.name = f"Cilia {model_id}"
     
     session.logger.info(f"Cilia model generated successfully!")
     session.logger.info(f"  Type: {centerline_type}")
@@ -250,6 +247,8 @@ def ciliabuild(session,
     session.logger.info(f"  Cilia radius: {cilia_radius} Å")
     if membrane:
         session.logger.info(f"  Membrane: {membrane_fraction*100:.1f}% coverage, radius {membrane_radius} Å")
+    
+    return cilia_root
 
 
 def centriolebuild(session,
@@ -328,8 +327,6 @@ def centriolebuild(session,
         num_doublets=num_triplets,  # Reuse parameter name
         cilia_radius=centriole_radius
     )
-    
-    
     
     # Draw each triplet microtubule
     session.logger.info(f"Drawing {num_triplets} triplet microtubules...")
@@ -437,12 +434,18 @@ def centriolebuild(session,
             session.models.add_group(triplet_surfs, parent=centriole_root, name=f"TMT{triplet_info['index']+1}")
             session.logger.info(f"Added triplet {triplet_info['index']+1} to 'Centriole' group")
     
+    # Get the model ID and update the name
+    model_id = centriole_root.id_string  # This gives you something like "1" or "1.2"
+    centriole_root.name = f"Centriole {model_id}"
+    
     session.logger.info(f"Centriole model generated successfully!")
     session.logger.info(f"  Type: {centerline_type}")
     session.logger.info(f"  Length: {length} Å")
     session.logger.info(f"  Triplets: {num_triplets}")
     session.logger.info(f"  Centriole radius: {centriole_radius} Å")
     session.logger.info(f"  Angle offset: {centriole_angle_offset}°")
+    
+    return centriole_root
 
 
 # Command description for ciliabuild

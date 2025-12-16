@@ -2,6 +2,8 @@
 
 from chimerax.core.tools import ToolInstance
 from chimerax.core.commands import run
+from chimerax.core.models import Model
+
 
 from chimerax.ui import MainToolWindow
 from Qt.QtWidgets import (QVBoxLayout, QHBoxLayout, QGridLayout,
@@ -38,6 +40,9 @@ class CiliaBuilder(ToolInstance):
 
     def __init__(self, session, tool_name):
         super().__init__(session, tool_name)
+        
+        # --- NEW: Track the last generated model ---
+        self.last_generated_model = None
 
         # Set name displayed on title bar
         self.display_name = "Cilia/Centriole Builder"
@@ -197,12 +202,21 @@ class CiliaBuilder(ToolInstance):
         # Initial visibility update
         self._update_ui_visibility()
 
-
+        # --- Control Button Group ---
+        control_h_layout = QHBoxLayout()
+        
+        # NEW: Close Old Model Checkbox
+        self.close_old_model_check = QCheckBox("Close old model")
+        self.close_old_model_check.setChecked(True)
+        control_h_layout.addWidget(self.close_old_model_check)
+        
         # Generate button
         generate_button = QPushButton("Generate Model")
         generate_button.setStyleSheet("font-size: 12pt; padding: 10px; margin-top: 10px;")
         generate_button.clicked.connect(self._generate_model)
-        main_layout.addWidget(generate_button)
+        control_h_layout.addWidget(generate_button)
+        
+        main_layout.addLayout(control_h_layout)
 
         # Status label
         self.status_label = QLabel("")
@@ -273,8 +287,16 @@ class CiliaBuilder(ToolInstance):
     def _generate_model(self):
         """Generate the cilia or centriole model by calling cmd.py functions"""
         try:
-            # --- 1. Get Common Parameters ---
-            
+            # --- 0. Pre-Generation Cleanup ---
+            if self.close_old_model_check.isChecked() and self.last_generated_model:
+                try:
+                    self.session.models.remove([self.last_generated_model])
+                    self.session.logger.info(f"Closed previously generated model: {self.last_generated_model.name}")
+                    self.last_generated_model = None
+                except Exception as close_e:
+                    self.session.logger.warning(f"Could not close old model: {close_e}")
+                    
+            # --- 1. Get Common Parameters ---            
             length = float(self.length_input.text())
             num_units = int(self.num_units_input.text())
             ring_radius = float(self.cilia_radius_input.text())
@@ -292,6 +314,7 @@ class CiliaBuilder(ToolInstance):
             self.status_label.setStyleSheet("color: blue; font-style: italic;")
 
             is_cilia = self.mode_combo.currentText().startswith('Cilia')
+            new_model = None
             
             if is_cilia:
                 # --- CILIA (9x2 + 2) Logic - Call ciliabuild ---
@@ -303,10 +326,8 @@ class CiliaBuilder(ToolInstance):
                 membrane_radius = float(self.membrane_radius_input.text())
                 membrane_fraction = float(self.membrane_fraction_input.text())
                 
-                # Call the command function with all parameters
-                # This ensures membrane_radius and membrane_fraction are passed to ciliabuild,
-                # which then calls draw_membrane.
-                ciliabuild(
+                # Call the command function and get the returned model
+                new_model = ciliabuild(
                     session=self.session,
                     length=length, 
                     line=centerline_type,
@@ -330,8 +351,8 @@ class CiliaBuilder(ToolInstance):
                 ab_length_diff = float(self.centriole_ab_length_diff_input.text())
                 bc_length_diff = float(self.centriole_bc_length_diff_input.text())
                 
-                # Call the command function with all parameters
-                centriolebuild(
+                # Call the command function and get the returned model
+                new_model = centriolebuild(
                     session=self.session,
                     length=length,
                     line=centerline_type,
@@ -341,15 +362,18 @@ class CiliaBuilder(ToolInstance):
                     num_triplets=num_units,
                     centriole_radius=ring_radius,
                     centriole_angle_offset=angle_offset,
-                    triplet_b_length_diff=ab_length_diff, # Assuming ab_length_diff is the A-B difference
-                    triplet_c_length_diff=bc_length_diff  # Assuming bc_length_diff is the B-C difference (this logic should be re-checked based on your function's math)
+                    triplet_b_length_diff=ab_length_diff,
+                    triplet_c_length_diff=bc_length_diff
                 )
-
+            
+            # --- 2. Post-Generation Tracking ---
+            if new_model is not None:
+                self.last_generated_model = new_model
+            
             # Update status
             model_type_name = self.mode_combo.currentText().split('(')[0].strip()
             self.status_label.setText(f"✓ {model_type_name} Model generated successfully! {num_units} Units, Type: {centerline_type}")
-            self.status_label.setStyleSheet("color: green; font-weight: bold;")
-
+            self.status_label.setStyleSheet("color: green; font-weight: bold;")            
         except ValueError as e:
             error_msg = f"Invalid input: {str(e)}"
             self.status_label.setText(f"✗ {error_msg}")
