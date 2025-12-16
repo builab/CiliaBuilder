@@ -10,6 +10,7 @@ from .draw import draw_tubules, draw_membrane
 # Define the optimal sampling interval for smoothness (must match curve.py)
 MAX_INTERVAL = 20.0 # 10 Angstroms interval for centerline points
 CILIA_OFFSET_ANGLE = 90.0 # Offset angle for cilia doublets
+Z_OFFSET_END = 2*MAX_INTERVAL # Offset to draw centriole & cilia
 
 
 def ciliabuild(session, 
@@ -289,6 +290,8 @@ def centriolebuild(session,
                 triplet_c_shift=200.0,   # C shift from triplet centerline
                 triplet_b_length_diff=0.1,  # B shorter than A at END
                 triplet_c_length_diff=0.2,   # C shorter than A at END
+                # NEW PARAMETER FOR ALIGNMENT
+                z_offset_end=20.0,  # Target Z-coordinate for the end of the centriole (to align with cilia base, default 20.0)
                 # Color parameters
                 triplet_a_color=(100, 100, 255, 255),
                 triplet_b_color=(100, 100, 255, 255),
@@ -334,7 +337,8 @@ def centriolebuild(session,
         Length difference: B shorter than A at the END (default: 0.1)
     triplet_c_length_diff : float
         Length difference: C shorter than A at the END (default: 0.2)
-    
+    z_offset_end : float
+        The target Z-coordinate for the end (tip) of the centriole structure (default: 20.0)
     triplet_a_color : tuple
         RGBA color for A-tubules (default: (100, 100, 255, 255))
     triplet_b_color : tuple
@@ -359,6 +363,19 @@ def centriolebuild(session,
         num_doublets=num_triplets,  # Reuse parameter name
         cilia_radius=centriole_radius
     )
+    
+    # --- Centriole Alignment Shift to match Z_offset_end ---
+    # Centriole is generated from Z=0 to Z=length. Calculate the Z-shift needed to place 
+    # the end of the Centriole (originally at Z=length) at the desired z_offset_end.
+    z_shift = z_offset_end - length
+    
+    # Apply the shift to all Z-coordinates in the centerline.
+    # We assume the centerline is generated roughly along the Z-axis (index 2).
+    structure['centerline'][:, 2] += z_shift
+    
+    session.logger.info(f"Centriole length {length} Å shifted by {z_shift:.1f} Å to end at Z={z_offset_end:.1f} Å.")
+    session.logger.info(f"Centriole now spans approximately Z={0.0 + z_shift:.1f} to Z={length + z_shift:.1f}.")
+    # --- END Shift ---
     
     # Draw each triplet microtubule
     session.logger.info(f"Drawing {num_triplets} triplet microtubules...")
@@ -507,7 +524,6 @@ ciliabuild_desc = CmdDesc(
     synopsis='Generate complete cilia structure with customizable geometry'
 )
 
-# Command description for centriolebuild
 centriolebuild_desc = CmdDesc(
     keyword=[
         ('length', FloatArg),
@@ -525,6 +541,7 @@ centriolebuild_desc = CmdDesc(
         ('triplet_c_shift', FloatArg),
         ('triplet_b_length_diff', FloatArg),
         ('triplet_c_length_diff', FloatArg),
+        ('z_offset_end', FloatArg), # Added new keyword argument
         ('triplet_a_color', Color8Arg),
         ('triplet_b_color', Color8Arg),
         ('triplet_c_color', Color8Arg)

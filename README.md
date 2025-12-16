@@ -52,6 +52,8 @@ DONE
 - Change default color
 - Make coloring possible for doublet, triplet. 0.4.7
 - Make a,b different for cilia as well to make central pair longer 0.4.8
+- Generate centriole with offset so it is continuous with cilia
+
 
 
 
