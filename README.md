@@ -15,6 +15,13 @@ Open ChimeraX
 devel install [path_to_CiliaBuilder]
 ```
 
+## Interface usage
+Tools > High-order structure > Cilia Builder
+
+Then enjoy
+
+## Commandline usage (NOT RECOMMENDED)
+
 ### Simple straight cilia
 ciliabuild length 15000 cilia_radius 875
 
