@@ -168,11 +168,21 @@ class CiliaBuilder(ToolInstance):
         draw_h_layout.addStretch()
         cilia_layout.addLayout(draw_h_layout, 1, 0, 1, 2)
         
-        # Row 2: Doublet Length Difference
-        cilia_layout.addWidget(QLabel("A-B Length Diff (Å):"), 2, 0)
-        self.cilia_doublet_length_diff_input = QLineEdit("1.0")
-        self.cilia_doublet_length_diff_input.setToolTip("Length of A-tubule - Length of B-tubule")
-        cilia_layout.addWidget(self.cilia_doublet_length_diff_input, 2, 1)
+        # Row 2: Length Differences (A-B and CP-Doublet on same line)
+        length_diff_h_layout = QHBoxLayout()
+        length_diff_h_layout.addWidget(QLabel("A-B Diff (Å):"))
+        self.cilia_doublet_length_diff_input = QLineEdit("5.0")
+        self.cilia_doublet_length_diff_input.setToolTip("A-tubule minus B-tubule length")
+        self.cilia_doublet_length_diff_input.setMaximumWidth(100)
+        length_diff_h_layout.addWidget(self.cilia_doublet_length_diff_input)
+
+        length_diff_h_layout.addWidget(QLabel("CP-Doublet Diff (Å):"))
+        self.cilia_cp_doublet_length_diff_input = QLineEdit("0.0")
+        self.cilia_cp_doublet_length_diff_input.setToolTip("CP minus doublet A-tubule length (positive = CP longer)")
+        self.cilia_cp_doublet_length_diff_input.setMaximumWidth(100)
+        length_diff_h_layout.addWidget(self.cilia_cp_doublet_length_diff_input)
+
+        cilia_layout.addLayout(length_diff_h_layout, 2, 0, 1, 2)
         
         # Row 3: Membrane Radius and Fraction (Combined)
         membrane_param_h_layout = QHBoxLayout()
@@ -362,9 +372,10 @@ class CiliaBuilder(ToolInstance):
                 draw_central_pair = self.draw_cp_check.isChecked()
                 should_draw_membrane = self.draw_membrane_check.isChecked() 
                 doublet_length_diff = float(self.cilia_doublet_length_diff_input.text())
+                cp_doublet_length_diff = float(self.cilia_cp_doublet_length_diff_input.text())
                 membrane_radius = float(self.membrane_radius_input.text())
                 membrane_fraction = float(self.membrane_fraction_input.text())
-                
+             
                 # Call the command function and get the returned model
                 new_model = ciliabuild(
                     session=self.session,
@@ -380,6 +391,7 @@ class CiliaBuilder(ToolInstance):
                     membrane_radius=membrane_radius,
                     membrane_fraction=membrane_fraction,
                     doublet_length_diff=doublet_length_diff,
+                    cp_doublet_length_diff=cp_doublet_length_diff,
                     doublet_a_color=cilia_a_color,
                     doublet_b_color=cilia_b_color,
                     cp_color=cilia_cp_color

@@ -26,9 +26,10 @@ def ciliabuild(session,
             membrane_radius=1100,
             # Doublet Geometry Defaults
             doublet_a_radius=125.0, # A-tubule radius
-            doublet_b_radius=140.0, # B-tubule radius
+            doublet_b_radius=135.0, # B-tubule radius
             doublet_shift=70.0,     # A/B tubule shift from doublet centerline
-            doublet_length_diff=250.0, # Length difference between A and B tubules (A - B)
+            doublet_length_diff=5.0, # Length difference between A and B tubules (A - B)
+            cp_doublet_length_diff=0.0, # Length difference between CP and doublet (CP - doublet, positive means CP is longer)
             # Central Pair Geometry Defaults
             cp_radius=125.0,        # C1/C2 tubule radius
             cp_shift=160.0,          # C1/C2 shift distance from cilia center
@@ -132,15 +133,26 @@ def ciliabuild(session,
         doublet_segment_lengths = np.linalg.norm(np.diff(doublet_centerline, axis=0), axis=1)
         doublet_cumulative_length = np.concatenate(([0], np.cumsum(doublet_segment_lengths)))
         
-        # For B-tubule: find index where arc length = total_length - doublet_length_diff
+        # For A-tubule: shorten if CP should be longer
         total_doublet_length = doublet_cumulative_length[-1]
-        target_b_length = total_doublet_length - doublet_length_diff
-        idx_b = np.searchsorted(doublet_cumulative_length, target_b_length, side='right')
-        idx_b = max(2, min(idx_b, len(doublet_centerline)))
-        
+        if cp_doublet_length_diff > 0:
+            target_a_length = total_doublet_length - cp_doublet_length_diff
+            idx_a = np.searchsorted(doublet_cumulative_length, target_a_length, side='right')
+            idx_a = max(2, min(idx_a, len(doublet_centerline)))
+        else:
+            idx_a = len(doublet_centerline)
+
+        # For B-tubule: find index relative to A-tubule length
+        doublet_centerline_a = doublet_centerline[:idx_a]
+        a_segment_lengths = np.linalg.norm(np.diff(doublet_centerline_a, axis=0), axis=1)
+        a_cumulative_length = np.concatenate(([0], np.cumsum(a_segment_lengths)))
+        total_a_length = a_cumulative_length[-1]
+        target_b_length = total_a_length - doublet_length_diff
+        idx_b = np.searchsorted(a_cumulative_length, target_b_length, side='right')
+        idx_b = max(2, min(idx_b, len(doublet_centerline_a)))
+
         # Create separate centerlines for A and B
-        doublet_centerline_a = doublet_centerline  # Full length
-        doublet_centerline_b = doublet_centerline[idx_b_start:idx_b]  # Shortened
+        doublet_centerline_b = doublet_centerline_a[idx_b_start:idx_b]  # Shortened relative to A
         
         # Create empty doublet surfs
         doublet_surfs = []
@@ -485,6 +497,7 @@ ciliabuild_desc = CmdDesc(
         ('doublet_b_radius', FloatArg),
         ('doublet_shift', FloatArg),
         ('doublet_length_diff', FloatArg),
+        ('cp_doublet_length_diff', FloatArg),
         ('cp_radius', FloatArg),
         ('cp_shift', FloatArg),
         ('doublet_a_color', Color8Arg),
