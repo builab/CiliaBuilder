@@ -10,9 +10,11 @@ Download or git clone
 git clone https://github.com/builab/CiliaBuilder.git
 ```
 
+If you download, then unzip
+
 Open ChimeraX
 ```bash
-devel install [path_to_CiliaBuilder]
+devel install [path_to_CiliaBuilder_folder]
 ```
 
 ## Interface usage
