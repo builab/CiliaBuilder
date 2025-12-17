@@ -49,6 +49,9 @@ centriolebuild length 5000 num_triplets 12 centriole_radius 1200
 
 TODO
 - Pre-calculated tip for Tetrahymena & Primary cilia. (Priority)
+- Add initial part for sinusoidal to align it. cos(90 - atan2(amplitude, length/(freq*4)))*(2*cilia_radius)
+- Use a template curve for line type (csv: X,Y only)
+- Movie part (low priority)
 - Make doublet hollow (low priority) or not viable
 
 DONE

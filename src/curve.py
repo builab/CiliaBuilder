@@ -4,11 +4,10 @@ Calculate points for cilia structure with curved centerlines
 import numpy as np
 
 
-def generate_centerline_points(length=10.0, num_points=100, 
+def generate_centerline_points(length=10000.0, num_points=100, 
                                centerline_type='straight',
-                               curve_radius=5.0, 
-                               # curve_angle removed
-                               sine_frequency=2.0, sine_amplitude=2.0):
+                               curve_radius=10000.0, 
+                               sine_frequency=1.0, sine_amplitude=1000.0):
     """
     Generate centerline points for straight, curved, or sinusoidal paths.
     
@@ -20,9 +19,9 @@ def generate_centerline_points(length=10.0, num_points=100,
         Number of points along the centerline (default: 100). Determines smoothness.
     centerline_type : str
         Type of center line: 'straight', 'curve', or 'sinusoidal' (default: 'straight')
+        Add a bit of straight Z in the case of sinuisoidal.
     curve_radius : float
         Radius of curvature for 'curve' type (default: 5.0)
-    # curve_angle removed: total angle is derived from length / curve_radius
     sine_frequency : float
         Frequency of sinusoidal oscillation (default: 2.0)
     sine_amplitude : float
@@ -33,6 +32,8 @@ def generate_centerline_points(length=10.0, num_points=100,
     points : numpy.ndarray
         Array of shape (num_points, 3) containing (x, y, z) coordinates
     """
+    
+    CILIA_DIAMETER=2000
     
     # Parameter t goes from 0 to length
     t = np.linspace(0, length, num_points)
@@ -61,10 +62,60 @@ def generate_centerline_points(length=10.0, num_points=100,
         z_center = curve_radius * np.sin(theta)
         
     elif centerline_type == 'sinusoidal':
-        # Planar sinusoidal curve in the x-z plane
-        x_center = sine_amplitude * np.sin(sine_frequency * 2 * np.pi * t / length)
+        # Calculate Z-offset using the provided formula with cilia_radius = 1000
+        cilia_radius = 1000.0
+        angle_rad = np.arctan2(sine_amplitude, length / (sine_frequency * 4))
+        z_offset = np.cos(np.pi/2 - angle_rad) * (2 * CILIA_DIAMETER)
+        
+        # Generate upper part: sinusoidal curve shifted by z_offset
+        x_upper = sine_amplitude * np.sin(sine_frequency * 2 * np.pi * t / length)
+        y_upper = np.zeros(num_points)
+        z_upper = t + z_offset
+        
+        # Generate lower part: straight segment from 0 to z_offset/2
+        straight_length = z_offset / 4
+        
+        # Find indices for different regions
+        # Lower region: straight from 0 to z_offset/2
+        lower_mask = t <= straight_length
+        # Upper region: original sinusoidal (no interpolation needed)
+        upper_mask = t >= z_offset
+        # Interpolation region: between z_offset/2 and z_offset
+        interp_mask = ~lower_mask & ~upper_mask
+        
+        # Initialize arrays
+        x_center = np.zeros(num_points)
         y_center = np.zeros(num_points)
-        z_center = t
+        z_center = np.zeros(num_points)
+        
+        # Lower part: straight segment
+        x_center[lower_mask] = 0
+        y_center[lower_mask] = 0
+        z_center[lower_mask] = t[lower_mask]
+        
+        # Upper part: sinusoidal with offset
+        x_center[upper_mask] = x_upper[upper_mask]
+        y_center[upper_mask] = y_upper[upper_mask]
+        z_center[upper_mask] = z_upper[upper_mask]
+        
+        # Interpolation region: smooth transition for sinuisoidal curve.
+        if np.any(interp_mask):
+            t_interp = t[interp_mask]
+            # Interpolation parameter from 0 to 1
+            alpha = (t_interp - straight_length) / (z_offset - straight_length)
+            
+            # Lower endpoint values (end of straight segment)
+            x_lower_end = 0
+            z_lower_end = straight_length
+            
+            # Upper endpoint values (start of sinusoidal curve)
+            x_upper_start = x_upper[interp_mask]
+            z_upper_start = z_upper[interp_mask]
+            
+            # Linear interpolation
+            x_center[interp_mask] = (1 - alpha) * x_lower_end + alpha * x_upper_start
+            y_center[interp_mask] = 0
+            z_center[interp_mask] = (1 - alpha) * z_lower_end + alpha * z_upper_start
         
     else:
         raise ValueError("centerline_type must be 'straight', 'curve', or 'sinusoidal'")
@@ -77,18 +128,15 @@ def generate_centerline_points(length=10.0, num_points=100,
 
 def calculate_doublet_positions(centerline_points, doublet_index, 
                                 total_doublets=9, cilia_radius=190.0):
-# ... (function remains the same)
-    # Calculate angle for this doublet (evenly distributed around 360°)
+    """Calculate angle for this doublet (evenly distributed around 360°)"""
     angle = (360.0 / total_doublets) * doublet_index
     
     return angle, cilia_radius
 
 
 def generate_cilia_structure(length=5000.0, 
-                             # num_points argument removed from here
                              centerline_type='straight',
                              curve_radius=5000.0, 
-                             # curve_angle removed
                              sine_frequency=2.0, sine_amplitude=500.0,
                              num_doublets=9, cilia_radius=190.0):
     """
@@ -98,12 +146,10 @@ def generate_cilia_structure(length=5000.0,
     -----------
     length : float
         Length of the cilia (arc length for 'curve') (default: 5000.0 Angstroms)
-    # num_points is now calculated internally for optimal smoothness
     centerline_type : str
         Type of centerline: 'straight', 'curve', or 'sinusoidal' (default: 'straight')
     curve_radius : float
         Radius of curvature for 'curve' type (default: 5000.0)
-    # curve_angle removed
     sine_frequency : float
         Frequency of sinusoidal oscillation (default: 2.0)
     sine_amplitude : float
@@ -123,25 +169,20 @@ def generate_cilia_structure(length=5000.0,
         - 'centerline_type': type of centerline used
     """
     
-    # === CRUCIAL CHANGE FOR SMOOTHNESS ===
     # Set a maximum interval between points (e.g., 10 Angstroms) 
     # to ensure high-density sampling for smooth curves.
     MAX_INTERVAL = 10.0 
     num_points = int(length / MAX_INTERVAL) + 1
-    # ====================================
 
     # Generate centerline for central pair
     centerline = generate_centerline_points(
         length=length,
-        num_points=num_points, # Use the high-density number
+        num_points=num_points,
         centerline_type=centerline_type,
         curve_radius=curve_radius,
-        # curve_angle removed
         sine_frequency=sine_frequency,
         sine_amplitude=sine_amplitude
     )
-    
-    # ... (Rest of the function remains the same)
     
     # Calculate positions for each doublet
     doublets = []
@@ -169,7 +210,6 @@ def generate_cilia_structure(length=5000.0,
 
 
 def get_doublet_centerline(cilia_centerline, angle, shift_distance):
-# ... (function remains the same as high-density points should resolve tangent issues)
     """
     Calculate the centerline for a doublet microtubule by shifting the cilia centerline.
     
@@ -204,16 +244,12 @@ def get_doublet_centerline(cilia_centerline, angle, shift_distance):
         
         tangent = tangent / np.linalg.norm(tangent)
         
-        # --- Kink Fix: Use a stable reference vector (Y-axis) ---
-        # Since the curve is planar in XZ, the Y-axis (0, 1, 0) is a stable perpendicular reference.
-        # This prevents the abrupt flip when the Z-component of the tangent changes.
+        # Use a stable reference vector (Y-axis)
         up = np.array([0.0, 1.0, 0.0]) 
         
-        # Ensure 'up' is not parallel to the tangent (only happens if tangent is also (0,1,0))
-        # If the tangent is close to (0,1,0), choose a different reference, e.g., (1,0,0)
+        # Ensure 'up' is not parallel to the tangent
         if np.linalg.norm(np.cross(tangent, up)) < 1e-6:
              up = np.array([1.0, 0.0, 0.0])
-        # ---------------------------------------------------------
         
         normal = np.cross(tangent, up)
         normal = normal / np.linalg.norm(normal)
@@ -247,12 +283,12 @@ if __name__ == "__main__":
     print(f"Centerline points shape: {structure['centerline'].shape}")
     print(f"Number of doublets: {structure['num_doublets']}")
     
-    # Generate curved cilia structure (using length as arc length)
+    # Generate curved cilia structure
     print("\n2. Generating CURVED cilia structure...")
     structure_curved = generate_cilia_structure(
-        length=5000.0, # Arc length = 5000
+        length=5000.0,
         centerline_type='curve',
-        curve_radius=10000.0, # Radius = 10000
+        curve_radius=10000.0,
         num_doublets=9,
         cilia_radius=190.0
     )
@@ -261,8 +297,8 @@ if __name__ == "__main__":
     print(f"Curve radius: 10000.0 Å")
     print(f"Calculated Total Angle (approx): {np.degrees(structure_curved['length'] / 10000.0):.2f}°")
     
-    # Generate sinusoidal cilia structure
-    print("\n3. Generating SINUSOIDAL cilia structure...")
+    # Generate sinusoidal cilia structure with offset
+    print("\n3. Generating SINUSOIDAL cilia structure (with straight start)...")
     structure_sine = generate_cilia_structure(
         length=5000.0,
         centerline_type='sinusoidal',
@@ -273,5 +309,11 @@ if __name__ == "__main__":
     )
     
     print(f"Centerline type: {structure_sine['centerline_type']}")
+    
+    # Calculate and display the z-offset for verification
+    angle_rad = np.arctan2(500.0, 5000.0 / (3.0 * 4))
+    z_offset = np.cos(np.pi/2 - angle_rad) * (2 * 1000.0)
+    print(f"Z-offset applied: {z_offset:.2f} Å")
+    print(f"Straight segment length: {z_offset/2:.2f} Å")
     
     print("\n" + "=" * 60)
