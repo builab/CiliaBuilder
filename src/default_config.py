@@ -24,6 +24,7 @@ CILIA_LINE = 'straight'
 CILIA_CURVE_RADIUS = 10000.0  # Angstroms
 CILIA_SINE_FREQUENCY = 1.5
 CILIA_SINE_AMPLITUDE = 1000.0  # Angstroms
+TEMPLATE_FILE = 'template.csv'
 
 # Doublet Geometry
 CILIA_DOUBLET_A_RADIUS = 125.0  # Angstroms

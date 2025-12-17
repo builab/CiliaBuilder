@@ -272,7 +272,7 @@ class CiliaBuilder(ToolInstance):
         
         # Update General Labels and Defaults
         if is_cilia:
-            self.radius_label.setText("Doublet Ring Radius (Å):")
+            self.radius_label.setText("Cilia Radius (Å):")
             self.count_label.setText("Number of Doublets:")
             
             # Update general settings to Cilia defaults
@@ -285,7 +285,7 @@ class CiliaBuilder(ToolInstance):
             self.sine_amplitude_input.setText(str(default_config.CILIA_SINE_AMPLITUDE))
             
         else:
-            self.radius_label.setText("Triplet Ring Radius (Å):")
+            self.radius_label.setText("Centriole Radius (Å):")
             self.count_label.setText("Number of Triplets:")
             
             # Update general settings to Centriole defaults

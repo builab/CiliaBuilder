@@ -19,6 +19,7 @@ def ciliabuild(session,
             curve_radius=default_config.CILIA_CURVE_RADIUS, 
             sine_frequency=default_config.CILIA_SINE_FREQUENCY, 
             sine_amplitude=default_config.CILIA_SINE_AMPLITUDE,
+            template_file=default_config.TEMPLATE_FILE,
             # Cilia Structure Defaults
             num_doublets=default_config.CILIA_NUM_DOUBLETS, 
             cilia_radius=default_config.CILIA_RADIUS,
@@ -105,6 +106,7 @@ def ciliabuild(session,
         curve_radius=curve_radius,
         sine_frequency=sine_frequency,
         sine_amplitude=sine_amplitude,
+        template_file=template_file,
         num_doublets=num_doublets,
         cilia_radius=cilia_radius
     )
@@ -506,6 +508,7 @@ ciliabuild_desc = CmdDesc(
         ('curve_radius', FloatArg),
         ('sine_frequency', FloatArg),
         ('sine_amplitude', FloatArg),
+        ('template_file', StringArg),
         ('num_doublets', IntArg),
         ('cilia_radius', FloatArg),
         ('draw_central_pair', BoolArg),
