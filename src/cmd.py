@@ -282,6 +282,7 @@ def centriolebuild(session,
                 curve_radius=default_config.CENTRIOLE_CURVE_RADIUS,
                 sine_frequency=default_config.CENTRIOLE_SINE_FREQUENCY,
                 sine_amplitude=default_config.CENTRIOLE_SINE_AMPLITUDE,
+                template_file=default_config.TEMPLATE_FILE,
                 # Centriole Structure Defaults
                 num_triplets=default_config.CENTRIOLE_NUM_TRIPLETS,
                 centriole_radius=default_config.CENTRIOLE_RADIUS,
@@ -364,6 +365,7 @@ def centriolebuild(session,
         curve_radius=curve_radius,
         sine_frequency=sine_frequency,
         sine_amplitude=sine_amplitude,
+        template_file=default_config.TEMPLATE_FILE,
         num_doublets=num_triplets,  # Reuse parameter name
         cilia_radius=centriole_radius
     )
@@ -536,6 +538,7 @@ centriolebuild_desc = CmdDesc(
         ('curve_radius', FloatArg),
         ('sine_frequency', FloatArg),
         ('sine_amplitude', FloatArg),
+        ('template_file', StringArg),
         ('num_triplets', IntArg),
         ('centriole_radius', FloatArg),
         ('centriole_angle_offset', FloatArg),
