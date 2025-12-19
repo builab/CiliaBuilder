@@ -41,12 +41,14 @@ class CiliaBuilder(ToolInstance):
         # --- PLACE THE COMMAND HERE ---
         # This runs the command to set the lighting as soon as the tool is instantiated.
         session.logger.info(f"Starting Cilia Builder - Builab 2025")
-        session.logger.info("Default setting:\n\tset bgColor white\n\tlighting depthCue false\n\tlighting soft\n\tgraphics silhouettes true\n\tlighting shadows true")
+        session.logger.info("Default setting:\n\tset bgColor white\n\tlighting depthCue false\n\tlighting soft\n\tgraphics silhouettes true\n\tlighting shadows true\nsurface cap true")
         run(session, "set bgColor white", log=False)
         run(session, "lighting depthCue false", log=False)
         run(session, "lighting soft", log=False) 
         run(session, "graphics silhouettes true", log=False)
         run(session, "lighting shadows true", log=False)
+        run(session, "surface cap true", log=False)
+        run(session, "sop cap on", log=False)
         # ------------------------------
 
 

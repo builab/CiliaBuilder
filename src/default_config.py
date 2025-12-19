@@ -33,9 +33,15 @@ CILIA_DOUBLET_SHIFT = 70.0  # Angstroms
 CILIA_DOUBLET_LENGTH_DIFF = 5.0  # A - B length difference (Angstroms)
 CILIA_CP_DOUBLET_LENGTH_DIFF = 0.0  # CP - doublet length difference (Angstroms)
 
+
 # Central Pair Geometry
 CILIA_CP_RADIUS = 125.0  # Angstroms
 CILIA_CP_SHIFT = 160.0  # Angstroms
+
+# Tip Geometry
+TIP_TRANSITION_RADIUS = 0.75*CILIA_RADIUS
+TIP_FINAL_RADIUS = CILIA_CP_RADIUS*2 + CILIA_CP_SHIFT + 5
+TIP_LENGTH = 10000
 
 # Colors (RGBA, 0-255)
 CILIA_DOUBLET_A_COLOR = (100, 100, 255, 255)

@@ -46,19 +46,24 @@ class _MyAPI(BundleAPI):
         from . import cmd
         from chimerax.core.commands import register
         
-        from . import cmd
-        from chimerax.core.commands import register
-        
-        if ci.name == "ciliabuild":
-            func = cmd.ciliabuild
-            desc = cmd.ciliabuild_desc
-        elif ci.name == "centriolebuild":
-            func = cmd.centriolebuild
-            desc = cmd.centriolebuild_desc
+        command_map = {
+            "ciliabuild": (cmd.ciliabuild, cmd.ciliabuild_desc),
+            "centriolebuild": (cmd.centriolebuild, cmd.centriolebuild_desc),
+            "ciliabuild_from_csv": (cmd.ciliabuild_from_csv, cmd.ciliabuild_from_csv_desc)
+        }
+
+        # Use the .get() method to look up the command.
+        # If ci.name is not found, .get() returns the default value: None.
+        command_info = command_map.get(ci.name)
+
+        if command_info:
+            # If the command was found, unpack the tuple into func and desc
+            func, desc = command_info
         else:
+        # Handle the unknown command case
             logger.warning(f"Unknown command {ci.name} listed in bundle_info.xml")
             return
-
+            
         if desc.synopsis is None:
             desc.synopsis = ci.synopsis
             

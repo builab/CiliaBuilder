@@ -2,16 +2,19 @@
 
 from chimerax.core.commands import CmdDesc, IntArg, FloatArg, StringArg, BoolArg, Color8Arg
 
+import pandas as pd
 import numpy as np
 from chimerax.core.models import Surface
-from .curve import generate_cilia_structure, get_doublet_centerline
 from .draw import draw_tubules, draw_membrane
+from .geometry.centerline import generate_cilia_structure, get_doublet_centerline
+from .geometry.tip import generate_tip_curves
+from .io import save_curves_to_csv, generate_tip_csv
+
+# Experimental
+import csv
 
 # Import default value from default_config.py
 from . import default_config
-
-
-
 
 def ciliabuild(session, 
             length=default_config.CILIA_LENGTH, 
@@ -39,7 +42,8 @@ def ciliabuild(session,
             # Color parameters
             doublet_a_color=default_config.CILIA_DOUBLET_A_COLOR,
             doublet_b_color=default_config.CILIA_DOUBLET_B_COLOR,
-            cp_color=default_config.CILIA_CP_COLOR
+            cp_color=default_config.CILIA_CP_COLOR,
+            write_csv=False
             ):
     """
     Generate and draw a complete cilia structure with doublet microtubules.
@@ -121,6 +125,9 @@ def ciliabuild(session,
     # - Find START index (offset from beginning for visual separation)
     idx_b_start = 1
     
+    # Prepare data for CSV output
+    csv_data = []
+    
     for doublet_info in structure['doublets']:
         # Get the shifted centerline for this doublet
         doublet_centerline = get_doublet_centerline(
@@ -157,6 +164,20 @@ def ciliabuild(session,
 
         # Create separate centerlines for A and B
         doublet_centerline_b = doublet_centerline_a[idx_b_start:idx_b]  # Shortened relative to A
+        
+        # CSV generation
+        doublet_number = doublet_info['index'] + 1  # 1-indexed
+        for i, point in enumerate(doublet_centerline_a):
+            x, y, z = point
+            idx_a_val = 1  # All points in doublet_centerline_a have Idx_A = 1
+        
+            # Idx_B is 1 only for points in range [idx_b_start, idx_b)
+            if idx_b_start <= i < idx_b:
+                idx_b_val = 1
+            else:
+                idx_b_val = 0
+        
+            csv_data.append([doublet_number, x, y, z, idx_a_val, idx_b_val, doublet_info['angle'] + default_config.CILIA_OFFSET_ANGLE, -doublet_shift, doublet_shift])
         
         # Create empty doublet surfs
         doublet_surfs = []
@@ -272,7 +293,15 @@ def ciliabuild(session,
     session.logger.info(f"  Cilia radius: {cilia_radius} Å")
     if membrane:
         session.logger.info(f"  Membrane: {membrane_fraction*100:.1f}% coverage, radius {membrane_radius} Å")
-    
+        
+    # Write CSV file after processing all doublets (before drawing central pair)
+    if write_csv:
+        csv_filename = 'cilia.csv'
+        with open(csv_filename, 'w', newline='') as csvfile:
+            csv_writer = csv.writer(csvfile)
+            csv_writer.writerow(['DoubletNumber', 'X', 'Y', 'Z', 'Idx_A', 'Idx_B', 'Angle', 'A_Shift', 'B_Shift'])
+            csv_writer.writerows(csv_data)
+        
     return cilia_root
 
 
@@ -501,6 +530,168 @@ def centriolebuild(session,
     
     return centriole_root
 
+def ciliabuild_from_csv(session,
+            template_csv='cilia.csv',
+            # Cilia Structure Defaults
+            draw_central_pair=default_config.CILIA_DRAW_CENTRAL_PAIR,
+            membrane=default_config.CILIA_MEMBRANE,
+            membrane_fraction=default_config.CILIA_MEMBRANE_FRACTION,
+            membrane_radius=default_config.CILIA_MEMBRANE_RADIUS,
+            # Doublet Geometry Defaults
+            doublet_a_radius=default_config.CILIA_DOUBLET_A_RADIUS,
+            doublet_b_radius=default_config.CILIA_DOUBLET_B_RADIUS,
+            doublet_shift=default_config.CILIA_DOUBLET_SHIFT,
+            # Central Pair Geometry Defaults
+            cp_radius=default_config.CILIA_CP_RADIUS,
+            cp_shift=default_config.CILIA_CP_SHIFT,
+            # Color parameters
+            doublet_a_color=default_config.CILIA_DOUBLET_A_COLOR,
+            doublet_b_color=default_config.CILIA_DOUBLET_B_COLOR,
+            cp_color=default_config.CILIA_CP_COLOR
+            ):
+    """
+    Generate and draw a complete cilia structure from a template CSV file.
+    
+    Parameters:
+    -----------
+    session : chimerax session
+        ChimeraX session
+    template_csv : str
+        Path to CSV file with columns: DoubletNumber,X,Y,Z,Idx_A,Idx_B,Angle,A_shift,B_shift
+    draw_central_pair : bool
+        Whether to draw the central pair (default: True)
+    membrane : bool
+        Whether to draw the membrane (default: True)
+    membrane_fraction : float
+        Fraction of cilia length covered by membrane, from base (0.0-1.0) (default: 0.7)
+    membrane_radius : float
+        Radius of the membrane in Angstroms (default: 1000)
+    doublet_a_radius : float
+        Radius of the A-tubule (default: 125.0)
+    doublet_b_radius : float
+        Radius of the B-tubule (default: 145.0)
+    doublet_shift : float
+        Radial distance of A and B tubules from the doublet centerline (default: 70.0)
+    cp_radius : float
+        Radius of central pair (C1/C2) tubules (default: 125.0)
+    cp_shift : float
+        Distance of C1/C2 tubules from the cilia center line (default: 160.0)
+    doublet_a_color : tuple
+        RGBA color for A-tubules (default: (100, 100, 255, 255))
+    doublet_b_color : tuple
+        RGBA color for B-tubules (default: (100, 100, 255, 255))
+    cp_color : tuple
+        RGBA color for central pair tubules (default: (255, 255, 100, 255))
+    """
+    
+    session.logger.info(f"Loading cilia structure from template: {template_csv}")
+    
+    # Read the CSV file
+    try:
+        df = pd.read_csv(template_csv)
+    except FileNotFoundError:
+        session.logger.error(f"Template file not found: {template_csv}")
+        return None
+    except Exception as e:
+        session.logger.error(f"Error reading template file: {e}")
+        return None
+    
+    # Validate CSV columns
+    required_columns = ['DoubletNumber', 'X', 'Y', 'Z', 'Idx_A', 'Idx_B','Angle','A_Shift', 'B_Shift']
+    if not all(col in df.columns for col in required_columns):
+        session.logger.error(f"CSV must contain columns: {required_columns}")
+        return None
+    
+    cilia_root = Surface("Cilia_from_template", session)
+    session.models.add([cilia_root])
+    
+    # Get unique doublet numbers
+    doublet_numbers = sorted(df['DoubletNumber'].unique())
+    num_doublets = len(doublet_numbers)
+    
+    session.logger.info(f"Found {num_doublets} doublets in template")
+    
+    # Process each doublet
+    for doublet_num in doublet_numbers:
+        doublet_data = df[df['DoubletNumber'] == doublet_num]
+        
+        # Extract points where Idx_A = 1 (all A-tubule points)
+        a_data = doublet_data[doublet_data['Idx_A'] == 1]
+        doublet_centerline_a = a_data[['X', 'Y', 'Z']].values
+        
+        # Extract points where Idx_B = 1 (B-tubule points)
+        b_data = doublet_data[doublet_data['Idx_B'] == 1]
+        doublet_centerline_b = b_data[['X', 'Y', 'Z']].values
+        
+        angle = doublet_data['Angle'].iloc[0]
+        
+        #print(angle)
+        
+        a_shift = doublet_data['A_Shift'].iloc[0]
+        
+        b_shift = doublet_data['B_Shift'].iloc[0]
+
+                
+        if len(doublet_centerline_a) < 2:
+            session.logger.warning(f"Doublet {doublet_num} has insufficient A-tubule points, skipping")
+            continue
+        
+        # Create empty doublet surfs
+        doublet_surfs = []
+        
+        # Draw A-tubule (full length)
+        a_surfs = draw_tubules(
+            session=session,
+            length=None,
+            interval=default_config.MAX_INTERVAL,
+            centerline_points=doublet_centerline_a,
+            angle=angle,
+            radii=[doublet_a_radius],
+            shift_distances=[a_shift],
+            length_diffs=None,
+            tubule_names=[f"A_tubule"],
+            colors=[doublet_a_color],
+            group_name=f"A_tubule",
+            add_to_session=False
+        )
+        if a_surfs:
+            doublet_surfs.extend(a_surfs)
+        
+        # Draw B-tubule if it has points
+        if len(doublet_centerline_b) >= 2:
+            b_surfs = draw_tubules(
+                session=session,
+                length=None,
+                interval=default_config.MAX_INTERVAL,
+                centerline_points=doublet_centerline_b,
+                angle=angle,
+                radii=[doublet_b_radius],
+                shift_distances=[b_shift],
+                length_diffs=None,
+                tubule_names=[f"B_tubule"],
+                colors=[doublet_b_color],
+                group_name=f"B_tubule",
+                add_to_session=False
+            )
+            if b_surfs:
+                doublet_surfs.extend(b_surfs)
+        
+        session.models.add_group(doublet_surfs, parent=cilia_root, name=f"DMT{int(doublet_num)}")
+        session.logger.info(f"Added doublet {int(doublet_num)}")
+    
+    
+    # Get the model ID and update the name
+    model_id = cilia_root.id_string
+    cilia_root.name = f"Cilia_from_template {model_id}"
+    
+    session.logger.info(f"Cilia model from template generated successfully!")
+    session.logger.info(f"  Template: {template_csv}")
+    session.logger.info(f"  Doublets: {num_doublets}")
+    if membrane:
+        session.logger.info(f"  Membrane: {membrane_fraction*100:.1f}% coverage, radius {membrane_radius} Å")
+    
+    return cilia_root
+
 
 # Command description for ciliabuild
 ciliabuild_desc = CmdDesc(
@@ -526,7 +717,8 @@ ciliabuild_desc = CmdDesc(
         ('cp_shift', FloatArg),
         ('doublet_a_color', Color8Arg),
         ('doublet_b_color', Color8Arg),
-        ('cp_color', Color8Arg)
+        ('cp_color', Color8Arg),
+        ('write_csv', BoolArg)
     ],
     synopsis='Generate complete cilia structure with customizable geometry'
 )
@@ -555,4 +747,24 @@ centriolebuild_desc = CmdDesc(
         ('triplet_c_color', Color8Arg)
     ],
     synopsis='Generate complete centriole structure with triplet microtubules'
+)
+
+# Command description for ciliabuild_from_template
+ciliabuild_from_csv_desc = CmdDesc(
+    keyword=[
+        ('template_csv', StringArg),
+        ('draw_central_pair', BoolArg),
+        ('membrane', BoolArg),
+        ('membrane_fraction', FloatArg),
+        ('membrane_radius', FloatArg),
+        ('doublet_a_radius', FloatArg),
+        ('doublet_b_radius', FloatArg),
+        ('doublet_shift', FloatArg),
+        ('cp_radius', FloatArg),
+        ('cp_shift', FloatArg),
+        ('doublet_a_color', Color8Arg),
+        ('doublet_b_color', Color8Arg),
+        ('cp_color', Color8Arg)
+    ],
+    synopsis='Generate cilia structure from template CSV file'
 )

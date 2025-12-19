@@ -1,12 +1,13 @@
-"""
-Calculate points for cilia structure with curved centerlines
-"""
+# geometry/centerline.py
+
 import numpy as np
 from scipy.interpolate import UnivariateSpline
 
-def generate_centerline_points(length=10.0, num_points=100, 
+from .base import calculate_radial_position
+
+def generate_centerline_points(length=10000.0, num_points=100, 
                                centerline_type='straight',
-                               curve_radius=5.0, 
+                               curve_radius=10000.0, 
                                sine_frequency=1.0, sine_amplitude=1000.0,
                                template_file='template.csv'):
     """
@@ -21,11 +22,11 @@ def generate_centerline_points(length=10.0, num_points=100,
     centerline_type : str
         Type of center line: 'straight', 'curve', 'sinusoidal', or 'template' (default: 'straight')
     curve_radius : float
-        Radius of curvature for 'curve' type (default: 5.0)
+        Radius of curvature for 'curve' type (default: 10000.0)
     sine_frequency : float
-        Frequency of sinusoidal oscillation (default: 2.0)
+        Frequency of sinusoidal oscillation (default: 1.0)
     sine_amplitude : float
-        Amplitude of sinusoidal oscillation (default: 2.0)
+        Amplitude of sinusoidal oscillation (default: 1000.0)
     template_file : str
         Path to CSV file containing template points (default: 'template.csv')
         Required for centerline_type='template'. Must have at least 100 points.
@@ -190,22 +191,12 @@ def generate_centerline_points(length=10.0, num_points=100,
     return points
 
 
-
-
-def calculate_doublet_positions(centerline_points, doublet_index, 
-                                total_doublets=9, cilia_radius=190.0):
-    """Calculate angle for this doublet (evenly distributed around 360°)"""
-    angle = (360.0 / total_doublets) * doublet_index
-    
-    return angle, cilia_radius
-
-
-def generate_cilia_structure(length=5000.0, 
+def generate_cilia_structure(length=15000.0, 
                              centerline_type='straight',
-                             curve_radius=5000.0, 
-                             sine_frequency=2.0, sine_amplitude=500.0,
+                             curve_radius=10000.0, 
+                             sine_frequency=1.0, sine_amplitude=1000.0,
                              template_file='template.csv',
-                             num_doublets=9, cilia_radius=190.0):
+                             num_doublets=9, cilia_radius=875.0):
     """
     Generate complete cilia structure with centerline and doublet positions.
     
@@ -238,7 +229,7 @@ def generate_cilia_structure(length=5000.0,
     
     # Set a maximum interval between points (e.g., 10 Angstroms) 
     # to ensure high-density sampling for smooth curves.
-    MAX_INTERVAL = 10.0 
+    MAX_INTERVAL = 20.0 
     num_points = int(length / MAX_INTERVAL) + 1
 
     # Generate centerline for central pair
@@ -254,7 +245,7 @@ def generate_cilia_structure(length=5000.0,
     # Calculate positions for each doublet
     doublets = []
     for i in range(num_doublets):
-        angle, shift_dist = calculate_doublet_positions(
+        angle, shift_dist = calculate_radial_position(
             centerline, i, num_doublets, cilia_radius
         )
         doublets.append({
@@ -331,56 +322,3 @@ def get_doublet_centerline(cilia_centerline, angle, shift_distance):
     return doublet_centerline
 
 
-# Example usage
-if __name__ == "__main__":
-    print("=" * 60)
-    print("Cilia Structure Point Calculator")
-    print("=" * 60)
-    
-    # Generate straight cilia structure
-    print("\n1. Generating STRAIGHT cilia structure...")
-    structure = generate_cilia_structure(
-        length=5000.0,
-        centerline_type='straight',
-        num_doublets=9,
-        cilia_radius=190.0
-    )
-    
-    print(f"Centerline type: {structure['centerline_type']}")
-    print(f"Centerline points shape: {structure['centerline'].shape}")
-    print(f"Number of doublets: {structure['num_doublets']}")
-    
-    # Generate curved cilia structure
-    print("\n2. Generating CURVED cilia structure...")
-    structure_curved = generate_cilia_structure(
-        length=5000.0,
-        centerline_type='curve',
-        curve_radius=10000.0,
-        num_doublets=9,
-        cilia_radius=190.0
-    )
-    
-    print(f"Centerline type: {structure_curved['centerline_type']}")
-    print(f"Curve radius: 10000.0 Å")
-    print(f"Calculated Total Angle (approx): {np.degrees(structure_curved['length'] / 10000.0):.2f}°")
-    
-    # Generate sinusoidal cilia structure with offset
-    print("\n3. Generating SINUSOIDAL cilia structure (with straight start)...")
-    structure_sine = generate_cilia_structure(
-        length=5000.0,
-        centerline_type='sinusoidal',
-        sine_frequency=3.0,
-        sine_amplitude=500.0,
-        num_doublets=9,
-        cilia_radius=190.0
-    )
-    
-    print(f"Centerline type: {structure_sine['centerline_type']}")
-    
-    # Calculate and display the z-offset for verification
-    angle_rad = np.arctan2(500.0, 5000.0 / (3.0 * 4))
-    z_offset = np.cos(np.pi/2 - angle_rad) * (2 * 1000.0)
-    print(f"Z-offset applied: {z_offset:.2f} Å")
-    print(f"Straight segment length: {z_offset/2:.2f} Å")
-    
-    print("\n" + "=" * 60)
