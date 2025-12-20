@@ -153,7 +153,7 @@ def generate_tip_csv(
     return mixed_df
     
 
-def generate_cilia_with_tip_csv(
+def generate_cilia_with_tip(
     cilia_length=10000,
     cilia_radius=default_config.CILIA_RADIUS,
     tip_length=default_config.TIP_LENGTH,

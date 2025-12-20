@@ -7,7 +7,7 @@ import numpy as np
 from chimerax.core.models import Surface
 from .draw import draw_tubules, draw_membrane, generate_sphere_surface, generate_capsule_surface
 from .geometry.centerline import generate_cilia_structure, get_doublet_centerline
-from .io import generate_cilia_with_tip_csv
+from .io import generate_cilia_with_tip
 
 # Experimental
 import csv
@@ -56,7 +56,7 @@ def ciliabuild(session,
         session.logger.info(f"Generating cilia structure with {centerline_type} geometry...")
         
         # Generate tip CSV data
-        cilia_data_df = generate_cilia_with_tip_csv(
+        cilia_data_df = generate_cilia_with_tip(
             cilia_length=length,
             cilia_radius=cilia_radius,
             tip_length=tip_length,
