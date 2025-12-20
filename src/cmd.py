@@ -5,7 +5,7 @@ from chimerax.core.commands import CmdDesc, IntArg, FloatArg, StringArg, BoolArg
 import pandas as pd
 import numpy as np
 from chimerax.core.models import Surface
-from .draw import draw_tubules, draw_membrane, generate_sphere_surface
+from .draw import draw_tubules, draw_membrane, generate_sphere_surface, generate_capsule_surface
 from .geometry.centerline import generate_cilia_structure, get_doublet_centerline
 from .io import generate_cilia_with_tip_csv
 
@@ -606,8 +606,10 @@ def _ciliabuild_from_df(session, df,
         )
         
         if len(cap_data) > 0:
-            cap_surf = generate_sphere_surface(session, tuple(cap_data[['X', 'Y', 'Z']].iloc[0]), radius=default_config.TIP_CAP_RADIUS,
-                            color=cp_color, name="CapComplex", add_to_session=False)
+            #cap_surf = generate_sphere_surface(session, tuple(cap_data[['X', 'Y', 'Z']].iloc[0]), radius=default_config.TIP_CAP_RADIUS,
+            #                color=default_config.CILIA_CAP_COLOR, name="CapComplex", add_to_session=False)
+            cap_surf = generate_capsule_surface(session, tuple(cap_data[['X', 'Y', 'Z']].iloc[0]), capsule_length=default_config.TIP_CAP_LENGTH,
+                            radius=default_config.TIP_CAP_RADIUS, color=default_config.CILIA_CAP_COLOR, name="CapComplex", add_to_session=False)
         
         if cap_surf:
             cp_surfs.append(cap_surf)
@@ -798,7 +800,7 @@ centriolebuild_desc = CmdDesc(
 # Command description for ciliabuild_from_template
 ciliabuild_from_csv_desc = CmdDesc(
     keyword=[
-        ('data_source', StringArg),
+        ('template_csv', StringArg),
         ('draw_central_pair', BoolArg),
         ('membrane', BoolArg),
         ('membrane_fraction', FloatArg),

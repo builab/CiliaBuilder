@@ -54,8 +54,7 @@ TODO
 - For ArtiaX build, perhaps presupply a model of doublet & central pair volume at 8-nm repeat (expand curve.py).
 - Remove the io?
 - Clean up & refactor code
-- Need to draw the tip in the same one?
-- Make the cap geometry better (cylinder with sphere cap in one end)
+- Primary cilia
 
 DONE
 - Curve and sinusoidal from same direction (Done)

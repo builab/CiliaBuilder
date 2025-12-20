@@ -5,19 +5,28 @@ import numpy as np
 from chimerax.core.models import Surface
 from chimerax.surface import calculate_vertex_normals
 
+# --- Helper Function to Replicate Tube Frame Calculation (For Seamlessness) ---
+def _calculate_local_frame(tangent):
+    """Replicates the frame calculation inside create_tube_geometry."""
+    tangent = tangent / np.linalg.norm(tangent)
+    
+    up = np.array([0.0, 1.0, 0.0]) 
+    
+    # If the tangent is near parallel to 'up', choose X-axis instead
+    if np.linalg.norm(np.cross(tangent, up)) < 1e-6:
+         up = np.array([1.0, 0.0, 0.0])
+    
+    normal = np.cross(tangent, up)
+    normal = normal / np.linalg.norm(normal)
+    binormal = np.cross(tangent, normal)
+    
+    return normal, binormal
+
 # --- Helper Function to Generate Sphere Geometry ---
 def create_sphere_geometry(center, radius=10.0, segments_u=32, segments_v=16):
     """
     Generate vertices and triangles for a sphere using spherical coordinates.
-    
-    Parameters:
-    center (tuple/array): The (X, Y, Z) coordinates of the sphere's center.
-    radius (float): The radius of the sphere.
-    segments_u (int): Number of segments around the azimuth (longitude).
-    segments_v (int): Number of segments along the polar axis (latitude).
-    
-    Returns:
-    tuple: (vertices, triangles) arrays.
+    ... (Existing code for create_sphere_geometry) ...
     """
     center = np.array(center)
     
@@ -46,10 +55,6 @@ def create_sphere_geometry(center, radius=10.0, segments_u=32, segments_v=16):
     # Iterate through each quad
     for i in range(segments_v):
         for j in range(segments_u):
-            # Current quad indices:
-            # (i*v_ring + j) --- (i*v_ring + (j+1)%v_ring)
-            #       |                     |
-            # ((i+1)*v_ring + j) --- ((i+1)*v_ring + (j+1)%v_ring)
             
             p1 = i * v_ring + j
             p2 = i * v_ring + (j + 1) % v_ring
@@ -66,29 +71,11 @@ def create_sphere_geometry(center, radius=10.0, segments_u=32, segments_v=16):
 def create_tube_geometry(path_points, radius=10.0, segments=16, capped=True):
     """
     Create tube geometry from a path of points.
-    
-    Parameters:
-    -----------
-    path_points : numpy.ndarray
-        Array of shape (N, 3) containing the path points
-    radius : float
-        Radius of the tube (default: 10.0)
-    segments : int
-        Number of segments around the tube circumference (default: 16)
-    capped : bool
-        Whether to add caps at the ends (default: True)
-    
-    Returns:
-    --------
-    vertices : numpy.ndarray
-        Array of vertex positions
-    triangles : numpy.ndarray
-        Array of triangle indices
+    ... (Existing code for create_tube_geometry) ...
     """
     n_points = len(path_points)
     
     # --- ERROR PREVENTION FIX ---
-    # Cannot draw a tube with fewer than 2 points. Return empty arrays gracefully.
     if n_points < 2:
         return np.empty((0, 3), dtype=np.float32), np.empty((0, 3), dtype=np.int32)
     # ----------------------------
@@ -104,28 +91,14 @@ def create_tube_geometry(path_points, radius=10.0, segments=16, capped=True):
     for i in range(n_points):
         # Calculate tangent vector
         if i == 0:
-            # Use next point for direction
             tangent = path_points[i+1] - path_points[i]
         elif i == n_points - 1:
-            # Use previous point for direction
             tangent = path_points[i] - path_points[i-1]
         else:
-            # Use average of forward and backward
             tangent = path_points[i+1] - path_points[i-1]
         
-        tangent = tangent / np.linalg.norm(tangent)
-        
-        # --- Kink Fix: Use a stable reference vector (Y-axis) ---
-        up = np.array([0.0, 1.0, 0.0]) 
-        
-        # If the tangent is near parallel to 'up' (e.g., tangent is along Y-axis), choose X-axis instead
-        if np.linalg.norm(np.cross(tangent, up)) < 1e-6:
-             up = np.array([1.0, 0.0, 0.0])
-        # ---------------------------------------------------------
-        
-        normal = np.cross(tangent, up)
-        normal = normal / np.linalg.norm(normal)
-        binormal = np.cross(tangent, normal)
+        # Calculate local frame (same logic as in _calculate_local_frame)
+        normal, binormal = _calculate_local_frame(tangent)
         
         # Create circle of vertices around this point
         for j in range(segments):
@@ -178,6 +151,184 @@ def create_tube_geometry(path_points, radius=10.0, segments=16, capped=True):
     triangles = np.array(triangles, dtype=np.int32)
     
     return vertices, triangles
+
+# --- NEW HELPER FUNCTION for Combining Geometry ---
+def combine_geometries(geom_list):
+    """Utility to combine multiple (vertices, triangles) tuples."""
+    all_vertices = []
+    all_triangles = []
+    vertex_count = 0
+    
+    for vertices, triangles in geom_list:
+        if len(vertices) > 0:
+            all_vertices.append(vertices)
+            # Offset triangle indices by the current total vertex count
+            all_triangles.append(triangles + vertex_count)
+            vertex_count += len(vertices)
+            
+    if len(all_vertices) == 0:
+        return np.empty((0, 3), dtype=np.float32), np.empty((0, 3), dtype=np.int32)
+        
+    return np.vstack(all_vertices), np.vstack(all_triangles)
+
+
+# --- NEW HELPER FUNCTION for Flat Cap Geometry (Modified to use frame) ---
+def create_disk_geometry(center, radius=10.0, segments=32, frame=None):
+    """
+    Generate vertices and triangles for a flat circular disk, using a frame 
+    to ensure alignment with the cylinder.
+    
+    Parameters:
+    ...
+    frame (tuple): The (normal, binormal) vectors defining the disk's plane and orientation.
+    """
+    center = np.array(center)
+    
+    if frame is None:
+        # Default frame if called standalone (should not happen in capsule function)
+        normal = np.array([1.0, 0.0, 0.0])
+        binormal = np.array([0.0, 1.0, 0.0])
+    else:
+        normal, binormal = frame
+        
+    # Generate ring vertices
+    theta = np.linspace(0, 2*np.pi, segments, endpoint=False)
+    
+    vertices = [center] # The center point is the first vertex (index 0)
+    
+    # Outer circle vertices (must use the same cosine/sine sequence as the cylinder)
+    for angle in theta:
+        x = radius * np.cos(angle)
+        y = radius * np.sin(angle)
+        vertex = center + x * normal + y * binormal
+        vertices.append(vertex)
+        
+    vertices = np.array(vertices, dtype=np.float32)
+    
+    # Create triangles (fan pattern from the center vertex)
+    triangles = []
+    center_idx = 0
+    
+    for i in range(segments):
+        v1 = i + 1  # Index of current point on the circumference
+        v2 = (i + 1) % segments + 1 # Index of next point (loops back)
+        
+        # Triangle (Center, V1, V2)
+        # Note: Winding should be consistent (e.g., counter-clockwise from the center's perspective)
+        triangles.append([center_idx, v1, v2])
+        
+    return vertices, np.array(triangles, dtype=np.int32)
+
+
+# --- MODIFIED FUNCTION: CAPSULE SURFACE GENERATOR (Fixed for seamless flat end) ---
+def generate_capsule_surface(session, center=(0.0, 0.0, 0.0), capsule_length=25.0, radius=10.0, 
+                             segments=32, color=(255, 255, 0, 255), name="capsule", 
+                             flat_end_z='low', add_to_session=True):
+    """
+    Generate a capsule surface model (cylinder with two hemispherical caps) 
+    in ChimeraX, centered around the Z-axis, with an option for one end to be flat.
+    """
+    center = np.array(center)
+    
+    # --- 1. Calculate dimensions and centers ---
+    
+    if capsule_length < 2 * radius:
+        session.logger.warning(f"Capsule length ({capsule_length}) is less than 2*radius ({2*radius}). Generating a sphere.")
+        # Assuming generate_sphere_surface takes segments_v=segments//2
+        return generate_sphere_surface(session, center, radius, segments, segments // 2, color, name, add_to_session)
+
+    cylinder_centerline_length = capsule_length - 2 * radius
+    half_cyl_centerline = cylinder_centerline_length / 2.0
+    
+    # Sphere centers
+    sphere_center_a = center + np.array([0, 0, -capsule_length / 2.0 + radius]) 
+    sphere_center_b = center + np.array([0, 0, capsule_length / 2.0 - radius])  
+    
+    # Cylinder Path Points (Cap attachment points)
+    cyl_start_z = center[2] - half_cyl_centerline
+    cyl_end_z = center[2] + half_cyl_centerline
+    cap_center_low_z = np.array([center[0], center[1], cyl_start_z])
+    cap_center_high_z = np.array([center[0], center[1], cyl_end_z])
+    
+    # Generate the centerline path for the cylinder
+    path_points = generate_centerline_points(
+        length=cylinder_centerline_length, 
+        interval=cylinder_centerline_length, 
+        start_point=cap_center_low_z
+    )
+    
+    # --- Calculate cylinder frame (TNB) for seamless flat caps ---
+    path_tangent = path_points[1] - path_points[0]
+    cylinder_frame = _calculate_local_frame(path_tangent)
+    
+    # --- 2. Generate Geometries ---
+    
+    geom_list = []
+    segments_v = max(4, segments // 2)
+    
+    # Low Z End Cap (A)
+    if flat_end_z == 'low':
+        vertices_a, triangles_a = create_disk_geometry(
+            cap_center_low_z, 
+            radius, 
+            segments, 
+            frame=cylinder_frame # Use cylinder's frame for seamless connection
+        )
+    else:
+        # Rounded sphere cap
+        vertices_a, triangles_a = create_sphere_geometry(
+            sphere_center_a, radius, segments_u=segments, segments_v=segments_v
+        )
+        
+    geom_list.append((vertices_a, triangles_a))
+    
+    # High Z End Cap (B)
+    if flat_end_z == 'high':
+        vertices_b, triangles_b = create_disk_geometry(
+            cap_center_high_z, 
+            radius, 
+            segments, 
+            frame=cylinder_frame # Use cylinder's frame for seamless connection
+        )
+    else:
+        # Rounded sphere cap
+        vertices_b, triangles_b = create_sphere_geometry(
+            sphere_center_b, radius, segments_u=segments, segments_v=segments_v
+        )
+
+    geom_list.append((vertices_b, triangles_b))
+    
+    # Generate Cylinder Body
+    if cylinder_centerline_length > 0.0:
+        vertices_cyl, triangles_cyl = create_tube_geometry(path_points, radius, segments, capped=False)
+        geom_list.append((vertices_cyl, triangles_cyl))
+
+    # --- 3. Combine Geometries and Create Surface ---
+    
+    vertices, triangles = combine_geometries(geom_list)
+    
+    if len(vertices) == 0:
+        session.logger.warning(f"Skipping surface creation for '{name}': No geometry generated.")
+        return None
+    
+    # Calculate normals for the combined geometry
+    normals = calculate_vertex_normals(vertices, triangles)
+    
+    # Create surface model
+    surf = Surface(name, session)
+    surf.set_geometry(vertices, normals, triangles)
+    
+    # Set color (convert to 0-255 uint8 array)
+    color_array = np.array(color, dtype=np.uint8)
+    surf.color = color_array
+    
+    # Add to session if requested
+    if add_to_session:
+        session.models.add([surf])
+        
+    session.logger.info(f"Created capsule \"{name}\" (Total Length: {capsule_length}, Radius: {radius}, Flat End: {flat_end_z})")
+    
+    return surf
 
 # --- Main Sphere Surface Generator ---
 def generate_sphere_surface(session, center=(0.0, 0.0, 0.0), radius=10.0, segments_u=32, segments_v=16,

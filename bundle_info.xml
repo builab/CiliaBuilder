@@ -6,7 +6,7 @@ will be displayed without the ChimeraX- prefix.
 -->
 
 <BundleInfo name="ChimeraX-CiliaBuilder"
-	    version="0.9.4" package="chimerax.ciliabuilder"
+	    version="0.9.5" package="chimerax.ciliabuilder"
   	    minSessionVersion="1" maxSessionVersion="1">
 
   <!-- Additional information about bundle source -->

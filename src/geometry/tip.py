@@ -44,8 +44,9 @@ def generate_tip_curves(tip_length, cilia_radius, transition_radius, final_radiu
     z_spline = np.linspace(INITIAL_LENGTH, tip_length + INITIAL_LENGTH, n_points_spline)
 
     for i in range(num_lines):
-        angle = (i / num_lines) * 2 * np.pi  # Add π/2 (90°) to match curve.py
-        
+        #angle = (i / num_lines) * 2 * np.pi  # 
+        angle = (i / num_lines) * 2 * np.pi  + np.pi # Add pi to match curve.py
+
         # Define 4 control points
         p1 = np.array([cilia_radius * np.cos(angle), cilia_radius * np.sin(angle), 0])
         p2 = np.array([p1[0], p1[1], INITIAL_LENGTH])
