@@ -31,7 +31,7 @@ CILIA_DOUBLET_A_RADIUS = 125.0  # Angstroms
 CILIA_DOUBLET_B_RADIUS = 135.0  # Angstroms
 CILIA_DOUBLET_SHIFT = 70.0  # Angstroms
 CILIA_DOUBLET_LENGTH_DIFF = 5.0  # A - B length difference (Angstroms)
-CILIA_CP_DOUBLET_LENGTH_DIFF = 0.0  # CP - doublet length difference (Angstroms)
+CILIA_CP_DOUBLET_LENGTH_DIFF = 200.0  # CP - doublet length difference (Angstroms)
 
 
 # Central Pair Geometry
@@ -40,8 +40,11 @@ CILIA_CP_SHIFT = 160.0  # Angstroms
 
 # Tip Geometry
 TIP_TRANSITION_RADIUS = 0.75*CILIA_RADIUS
-TIP_FINAL_RADIUS = CILIA_CP_RADIUS*2 + CILIA_CP_SHIFT + 5
-TIP_LENGTH = 10000
+TIP_FINAL_RADIUS = CILIA_CP_RADIUS + CILIA_CP_SHIFT + 50
+TIP_TRANSITION_LENGTH = 1500
+TIP_INITIAL_LENGTH = 300
+TIP_LENGTH = 5000
+
 
 # Colors (RGBA, 0-255)
 CILIA_DOUBLET_A_COLOR = (100, 100, 255, 255)
@@ -53,7 +56,7 @@ CILIA_MEMBRANE_COLOR = (105, 105, 105, 255)
 # CENTRIOLE DEFAULTS (9x3)
 # ============================================================================
 # Structure Parameters
-CENTRIOLE_LENGTH = 5000  # Angstroms
+CENTRIOLE_LENGTH = 3000  # Angstroms
 CENTRIOLE_NUM_TRIPLETS = 9
 CENTRIOLE_RADIUS = 875.0  # Angstroms
 CENTRIOLE_OFFSET_ANGLE = 30.0  # Degrees

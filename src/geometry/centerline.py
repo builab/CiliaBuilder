@@ -3,33 +3,151 @@
 import numpy as np
 from scipy.interpolate import UnivariateSpline
 
-from .base import calculate_radial_position
+# --- Helper Functions for Centerline Types ---
 
-def generate_centerline_points(length=10000.0, num_points=100, 
+def calculate_radial_position(centerline_points, doublet_index, 
+                                total_doublets=9, cilia_radius=875.0):
+    """Calculate angle for this doublet (evenly distributed around 360°)"""
+    angle = (360.0 / total_doublets) * doublet_index
+    
+    return angle, cilia_radius
+
+def _generate_straight_centerline(t):
+    """Generate points for a straight centerline along the Z-axis."""
+    x_center = np.zeros_like(t)
+    y_center = np.zeros_like(t)
+    z_center = t
+    return x_center, y_center, z_center
+
+def _generate_curved_centerline(t, length, curve_radius):
+    """Generate points for a curved centerline (arc) in the X-Z plane."""
+    if curve_radius == 0:
+         raise ValueError("curve_radius cannot be zero for 'curve' type.")
+    
+    # s = R * theta => theta = s / R
+    total_angle_rad = length / curve_radius
+    theta = (t / length) * total_angle_rad
+    
+    # Curve starts at (0, 0, 0) and curves into the positive X-Z quadrant
+    x_center = curve_radius * (1 - np.cos(theta))
+    y_center = np.zeros_like(t)
+    z_center = curve_radius * np.sin(theta)
+    return x_center, y_center, z_center
+
+def _generate_sinusoidal_centerline(t, length, sine_frequency, sine_amplitude):
+    """Generate points for a sinusoidal centerline with a smooth lower transition."""
+    num_points = len(t)
+    
+    # Constants used in the original calculation
+    CILIA_RADIUS_REF = 1000.0
+    
+    # Calculate Z-offset (used to shift the curve so its start is at Z=0)
+    angle_rad = np.arctan2(sine_amplitude, length / (sine_frequency * 4))
+    z_offset = np.cos(np.pi/2 - angle_rad) * (2 * CILIA_RADIUS_REF)
+    straight_length = z_offset / 2 # End of pure straight section
+    
+    # Initialize arrays
+    x_center = np.zeros(num_points)
+    y_center = np.zeros(num_points)
+    z_center = np.zeros(num_points)
+    
+    # 1. Sinusoidal base curve (x_upper) and shifted z (z_upper)
+    x_upper_base = sine_amplitude * np.sin(sine_frequency * 2 * np.pi * t / length)
+    z_upper_shifted = t + z_offset
+    
+    # 2. Define Masks for three regions: Lower, Upper, Interpolation
+    lower_mask = t <= straight_length
+    upper_mask = t >= z_offset
+    interp_mask = ~(lower_mask | upper_mask) # The middle transition region
+    
+    # Lower part: Straight segment (0, 0, t)
+    z_center[lower_mask] = t[lower_mask]
+    # x_center/y_center remain 0
+
+    # Upper part: Sinusoidal
+    x_center[upper_mask] = x_upper_base[upper_mask]
+    z_center[upper_mask] = z_upper_shifted[upper_mask]
+    
+    # Interpolation region: Smooth transition
+    if np.any(interp_mask):
+        t_interp = t[interp_mask]
+        
+        # Interpolation parameter (0 at straight_length, 1 at z_offset)
+        alpha = (t_interp - straight_length) / (z_offset - straight_length)
+        
+        # Upper endpoint values (start of pure sinusoidal region)
+        x_upper_start = x_upper_base[interp_mask]
+        z_upper_start = z_upper_shifted[interp_mask]
+        
+        # Linear interpolation of X and Z coordinates
+        x_center[interp_mask] = alpha * x_upper_start # X starts at 0 (alpha=0)
+        z_center[interp_mask] = (1 - alpha) * straight_length + alpha * z_upper_start
+    
+    return x_center, y_center, z_center
+
+def _generate_template_centerline(t, length, template_file):
+    """Generate points by scaling and interpolating a 2D template file (x, z)."""
+    
+    # --- 1. Load and Validate Template Data ---
+    try:
+        # Load with a potential header skip
+        template_data = np.loadtxt(template_file, delimiter=',', skiprows=1)
+    except Exception:
+        # If loading with skiprows=1 fails (e.g., no header), try loading without skipping
+        try:
+            template_data = np.loadtxt(template_file, delimiter=',', skiprows=0)
+        except Exception as e:
+             raise ValueError(f"Could not load template file '{template_file}'. Check format.") from e
+
+    # Validation checks
+    if len(template_data) < 100:
+        raise ValueError(f"Template file must have at least 100 points, got {len(template_data)}")
+    if template_data.ndim == 1 or template_data.shape[1] != 2:
+        raise ValueError(f"Template file must have 2 columns (x, y/z), got {template_data.shape[1]}")
+
+    # Extract template coordinates (assuming template is in the XZ plane)
+    x_template = template_data[:, 0]
+    z_template = template_data[:, 1]
+    y_template = np.zeros_like(x_template)
+
+    # --- 2. Calculate Arc Length and Scaling ---
+    # Calculate cumulative arc length of the template
+    dx = np.diff(x_template)
+    dz = np.diff(z_template)
+    segment_lengths = np.sqrt(dx**2 + dz**2)
+    template_arc_length = np.concatenate([[0], np.cumsum(segment_lengths)])
+    template_total_length = template_arc_length[-1]
+    
+    # Scale factor to match desired length
+    scale_factor = length / template_total_length
+
+    # Scale the template coordinates and the arc length parameter for interpolation
+    scaled_arc_length = template_arc_length * scale_factor
+    scaled_x = scale_factor * x_template
+    scaled_z = scale_factor * z_template
+
+    # --- 3. Interpolation ---
+    # Create smooth splines for each coordinate (using arc length as parameter)
+    # s=0 ensures exact interpolation through control points
+    spline_x = UnivariateSpline(scaled_arc_length, scaled_x, s=0, k=3)
+    spline_z = UnivariateSpline(scaled_arc_length, scaled_z, s=0, k=3)
+    
+    # Interpolate for the desired number of points (t is the new arc length)
+    x_center = spline_x(t)
+    z_center = spline_z(t)
+    y_center = np.zeros_like(t)
+
+    return x_center, y_center, z_center
+
+
+# --- Main Function: generate_centerline_points ---
+def generate_centerline_points(length=10000.0, num_points=501, 
                                centerline_type='straight',
                                curve_radius=10000.0, 
                                sine_frequency=1.0, sine_amplitude=1000.0,
                                template_file='template.csv'):
     """
-    Generate centerline points for straight, curved, or sinusoidal paths.
-    
-    Parameters:
-    -----------
-    length : float
-        Length along the center line path (arc length for 'curve') (default: 10.0)
-    num_points : int
-        Number of points along the centerline (default: 100). Determines smoothness.
-    centerline_type : str
-        Type of center line: 'straight', 'curve', 'sinusoidal', or 'template' (default: 'straight')
-    curve_radius : float
-        Radius of curvature for 'curve' type (default: 10000.0)
-    sine_frequency : float
-        Frequency of sinusoidal oscillation (default: 1.0)
-    sine_amplitude : float
-        Amplitude of sinusoidal oscillation (default: 1000.0)
-    template_file : str
-        Path to CSV file containing template points (default: 'template.csv')
-        Required for centerline_type='template'. Must have at least 100 points.
+    Generate centerline points for straight, curved, sinusoidal, or template paths.
     
     Returns:
     --------
@@ -37,151 +155,18 @@ def generate_centerline_points(length=10000.0, num_points=100,
         Array of shape (num_points, 3) containing (x, y, z) coordinates
     """
     
-    # Parameter t goes from 0 to length
+    # t represents the normalized arc length parameter from 0 to length
     t = np.linspace(0, length, num_points)
     
-    # Generate center line coordinates based on type
+    # Dispatch based on centerline type
     if centerline_type == 'straight':
-        # Straight line along z-axis
-        x_center = np.zeros(num_points)
-        y_center = np.zeros(num_points)
-        z_center = t
-        
+        x_center, y_center, z_center = _generate_straight_centerline(t)
     elif centerline_type == 'curve':
-        # Curved arc in the x-z plane
-        # Calculate total angle (in radians) from arc length (length) and radius
-        # s = R * theta => theta = s / R
-        if curve_radius == 0:
-             raise ValueError("curve_radius cannot be zero for 'curve' type.")
-        total_angle_rad = length / curve_radius
-        
-        # theta parameter goes from 0 to total_angle_rad
-        # This defines the angle of the arc in the XZ plane.
-        theta = (t / length) * total_angle_rad
-        
-        x_center = curve_radius * (1 - np.cos(theta))  # Displacement in X
-        y_center = np.zeros(num_points)
-        z_center = curve_radius * np.sin(theta)
-        
+        x_center, y_center, z_center = _generate_curved_centerline(t, length, curve_radius)
     elif centerline_type == 'sinusoidal':
-        # Calculate Z-offset using the provided formula with cilia_radius = 1000
-        cilia_radius = 1000.0
-        angle_rad = np.arctan2(sine_amplitude, length / (sine_frequency * 4))
-        z_offset = np.cos(np.pi/2 - angle_rad) * (2 * cilia_radius)
-        
-        # Generate upper part: sinusoidal curve shifted by z_offset
-        x_upper = sine_amplitude * np.sin(sine_frequency * 2 * np.pi * t / length)
-        y_upper = np.zeros(num_points)
-        z_upper = t + z_offset
-        
-        # Generate lower part: straight segment from 0 to z_offset/2
-        straight_length = z_offset / 2
-        
-        # Find indices for different regions
-        # Lower region: straight from 0 to z_offset/2
-        lower_mask = t <= straight_length
-        # Upper region: original sinusoidal (no interpolation needed)
-        upper_mask = t >= z_offset
-        # Interpolation region: between z_offset/2 and z_offset
-        interp_mask = ~lower_mask & ~upper_mask
-        
-        # Initialize arrays
-        x_center = np.zeros(num_points)
-        y_center = np.zeros(num_points)
-        z_center = np.zeros(num_points)
-        
-        # Lower part: straight segment
-        x_center[lower_mask] = 0
-        y_center[lower_mask] = 0
-        z_center[lower_mask] = t[lower_mask]
-        
-        # Upper part: sinusoidal with offset
-        x_center[upper_mask] = x_upper[upper_mask]
-        y_center[upper_mask] = y_upper[upper_mask]
-        z_center[upper_mask] = z_upper[upper_mask]
-        
-        # Interpolation region: smooth transition
-        if np.any(interp_mask):
-            t_interp = t[interp_mask]
-            # Interpolation parameter from 0 to 1
-            alpha = (t_interp - straight_length) / (z_offset - straight_length)
-            
-            # Lower endpoint values (end of straight segment)
-            x_lower_end = 0
-            z_lower_end = straight_length
-            
-            # Upper endpoint values (start of sinusoidal curve)
-            x_upper_start = x_upper[interp_mask]
-            z_upper_start = z_upper[interp_mask]
-            
-            # Linear interpolation
-            x_center[interp_mask] = (1 - alpha) * x_lower_end + alpha * x_upper_start
-            y_center[interp_mask] = 0
-            z_center[interp_mask] = (1 - alpha) * z_lower_end + alpha * z_upper_start
-    
+        x_center, y_center, z_center = _generate_sinusoidal_centerline(t, length, sine_frequency, sine_amplitude)
     elif centerline_type == 'template':
-        # Load template from CSV file
-        try:
-            template_data = np.loadtxt(template_file, delimiter=',', skiprows=0)
-            
-            # Check if first row is a header (contains non-numeric data)
-            # Try to detect if first row should be skipped
-            first_row = template_data[0] if template_data.ndim > 1 else template_data
-            
-            # If the file might have headers, try loading with skiprows=1
-            try:
-                # Check if we can convert first row to float
-                _ = float(first_row[0]) if hasattr(first_row, '__getitem__') else float(first_row)
-            except (ValueError, TypeError):
-                # First row is not numeric, skip it
-                template_data = np.loadtxt(template_file, delimiter=',', skiprows=1)
-                
-        except Exception as e:
-            raise ValueError(f"Could not load template file '{template_file}': {e}")
-        
-        # Validate template has at least 100 points
-        if len(template_data) < 100:
-            raise ValueError(f"Template file must have at least 100 points, got {len(template_data)}")
-        
-        # Ensure template has 2 columns (x, y) which will be converted to (x, 0, z)
-        if template_data.ndim == 1:
-            raise ValueError("Template file must have 2 columns (x, y)")
-        if template_data.shape[1] != 2:
-            raise ValueError(f"Template file must have 2 columns (x, y), got {template_data.shape[1]}")
-        
-        # Extract x, y from template and convert to x, 0, z (planar in XZ plane)
-        x_template = template_data[:, 0]
-        y_template = np.zeros(len(template_data))  # Y is always 0 (planar in XZ)
-        z_template = template_data[:, 1]  # Second column becomes Z
-        
-        # Calculate cumulative arc length of the template
-        dx = np.diff(x_template)
-        dy = np.diff(y_template)
-        dz = np.diff(z_template)
-        segment_lengths = np.sqrt(dx**2 + dy**2 + dz**2)
-        template_arc_length = np.concatenate([[0], np.cumsum(segment_lengths)])
-        template_total_length = template_arc_length[-1]
-        
-        # Scale factor to match desired length
-        scale_factor = length / template_total_length
-        
-        # Scale the arc length parameter for interpolation
-        scaled_arc_length = template_arc_length * scale_factor
-        
-        # Create smooth splines for each coordinate with scaled coordinates
-        # Use UnivariateSpline with smoothing factor s=0 for exact interpolation
-        spline_x = UnivariateSpline(scaled_arc_length, scale_factor * x_template, s=0, k=3)
-        spline_y = UnivariateSpline(scaled_arc_length, scale_factor * y_template, s=0, k=3)
-        spline_z = UnivariateSpline(scaled_arc_length, scale_factor * z_template, s=0, k=3)
-        
-        # Generate new arc length parameter for desired number of points
-        new_arc_length = np.linspace(0, length, num_points)
-        
-        # Evaluate splines at new points
-        x_center = spline_x(new_arc_length)
-        y_center = spline_y(new_arc_length)
-        z_center = spline_z(new_arc_length)
-        
+        x_center, y_center, z_center = _generate_template_centerline(t, length, template_file)
     else:
         raise ValueError("centerline_type must be 'straight', 'curve', 'sinusoidal', or 'template'")
     
@@ -191,60 +176,39 @@ def generate_centerline_points(length=10000.0, num_points=100,
     return points
 
 
-def generate_cilia_structure(length=15000.0, 
-                             centerline_type='straight',
-                             curve_radius=10000.0, 
-                             sine_frequency=1.0, sine_amplitude=1000.0,
-                             template_file='template.csv',
-                             num_doublets=9, cilia_radius=875.0):
+# --- Main Function: generate_cilia_structure ---
+def generate_cilia_structure(
+    length=15000.0, 
+    centerline_type='straight',
+    curve_radius=10000.0, 
+    sine_frequency=1.0, 
+    sine_amplitude=1000.0,
+    template_file='template.csv',
+    num_doublets=9, 
+    cilia_radius=875.0,
+    max_interval=20.0 # Use a descriptive default parameter
+):
     """
-    Generate complete cilia structure with centerline and doublet positions.
-    
-    Parameters:
-    -----------
-    length : float
-        Length of the cilia (arc length for 'curve') (default: 5000.0 Angstroms)
-    centerline_type : str
-        Type of centerline: 'straight', 'curve', or 'sinusoidal' (default: 'straight')
-    curve_radius : float
-        Radius of curvature for 'curve' type (default: 5000.0)
-    sine_frequency : float
-        Frequency of sinusoidal oscillation (default: 2.0)
-    sine_amplitude : float
-        Amplitude of sinusoidal oscillation (default: 500.0)
-    num_doublets : int
-        Number of doublet microtubules around perimeter (default: 9)
-    cilia_radius : float
-        Radius from center to doublets (default: 190.0 Angstroms)
-    
-    Returns:
-    --------
-    structure : dict
-        Dictionary containing:
-        - 'centerline': centerline points for central pair
-        - 'doublets': list of (angle, shift_distance) for each doublet
-        - 'num_doublets': number of doublets
-        - 'centerline_type': type of centerline used
+    Generate complete cilia structure with centerline and doublet position information.
     """
-    
-    # Set a maximum interval between points (e.g., 10 Angstroms) 
-    # to ensure high-density sampling for smooth curves.
-    MAX_INTERVAL = 20.0 
-    num_points = int(length / MAX_INTERVAL) + 1
+    num_points = int(length / max_interval) + 1
 
-    # Generate centerline for central pair
+    # 1. Generate centerline for central pair
     centerline = generate_centerline_points(
         length=length,
         num_points=num_points,
         centerline_type=centerline_type,
         curve_radius=curve_radius,
         sine_frequency=sine_frequency,
-        sine_amplitude=sine_amplitude
+        sine_amplitude=sine_amplitude,
+        template_file=template_file
     )
     
-    # Calculate positions for each doublet
+    # 2. Calculate radial position for each doublet
     doublets = []
     for i in range(num_doublets):
+        # NOTE: calculate_radial_position is assumed to be defined in geometry/base.py
+        # and returns angle in DEGREES and shift_distance.
         angle, shift_dist = calculate_radial_position(
             centerline, i, num_doublets, cilia_radius
         )
@@ -267,58 +231,47 @@ def generate_cilia_structure(length=15000.0,
     return structure
 
 
+# --- Function: get_doublet_centerline (Improved Tangent Calculation) ---
 def get_doublet_centerline(cilia_centerline, angle, shift_distance):
     """
     Calculate the centerline for a doublet microtubule by shifting the cilia centerline.
-    
-    Parameters:
-    -----------
-    cilia_centerline : numpy.ndarray
-        Main cilia centerline points (N, 3)
-    angle : float
-        Angle in degrees for the doublet position
-    shift_distance : float
-        Radial distance from the cilia centerline
-    
-    Returns:
-    --------
-    doublet_centerline : numpy.ndarray
-        Shifted centerline points for the doublet (N, 3)
+    Uses the Frenet-Serret frame method (Tangent, Normal, Binormal) to ensure
+    the shift is radial and perpendicular to the centerline at every point.
     """
     n_points = len(cilia_centerline)
     doublet_centerline = np.zeros_like(cilia_centerline)
-    
-    # Convert angle to radians
     angle_rad = np.radians(angle)
     
+    # Pre-calculate tangent vectors for all points
+    tangents = np.gradient(cilia_centerline, axis=0)
+    tangents /= np.linalg.norm(tangents, axis=1)[:, np.newaxis]
+
+    # Use a global reference vector (Y-axis) for the initial cross product (Normal estimate)
+    UP_VECTOR = np.array([0.0, 1.0, 0.0])
+    
     for i in range(n_points):
-        # Calculate tangent vector
-        if i == 0:
-            tangent = cilia_centerline[i+1] - cilia_centerline[i]
-        elif i == n_points - 1:
-            tangent = cilia_centerline[i] - cilia_centerline[i-1]
-        else:
-            tangent = cilia_centerline[i+1] - cilia_centerline[i-1]
+        tangent = tangents[i]
         
-        tangent = tangent / np.linalg.norm(tangent)
+        # 1. Find a stable Normal vector
+        # Cross product of T and UP_VECTOR gives the Binormal (or a vector perpendicular to T)
+        normal_est = np.cross(tangent, UP_VECTOR)
         
-        # Use a stable reference vector (Y-axis)
-        up = np.array([0.0, 1.0, 0.0]) 
+        # If tangent is parallel to UP_VECTOR (e.g., vertical section)
+        if np.linalg.norm(normal_est) < 1e-6:
+             # Use a different reference vector (X-axis)
+             normal_est = np.cross(tangent, np.array([1.0, 0.0, 0.0]))
+
+        normal = normal_est / np.linalg.norm(normal_est)
         
-        # Ensure 'up' is not parallel to the tangent
-        if np.linalg.norm(np.cross(tangent, up)) < 1e-6:
-             up = np.array([1.0, 0.0, 0.0])
-        
-        normal = np.cross(tangent, up)
-        normal = normal / np.linalg.norm(normal)
+        # 2. Calculate the Binormal (perpendicular to T and N)
         binormal = np.cross(tangent, normal)
+        # Note: binormal is already normalized since T and N are orthogonal unit vectors
         
-        # Calculate shift direction based on angle
+        # 3. Calculate shift vector: combination of Normal and Binormal, rotated by angle
+        # The (N, B) plane is the cross-sectional plane of the cilia
         shift_vector = shift_distance * (np.cos(angle_rad) * normal + np.sin(angle_rad) * binormal)
         
-        # Apply shift
+        # 4. Apply shift
         doublet_centerline[i] = cilia_centerline[i] + shift_vector
     
     return doublet_centerline
-
-

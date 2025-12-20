@@ -52,7 +52,10 @@ TODO
 - Movie part (low priority)
 - Make doublet hollow (low priority) or not viable
 - For ArtiaX build, perhaps presupply a model of doublet & central pair volume at 8-nm repeat (expand curve.py).
-- Tip: rotate 20 degrees, a bit off still. Perhaps better connect & fit again.
+- Remove the io?
+- Clean up & refactor code
+- Add to interface
+- What about cosin drop ignoring transition interface
 
 DONE
 - Curve and sinusoidal from same direction (Done)
@@ -71,9 +74,15 @@ DONE
 - Make default_config.py for easy controlling of the data. 0.5.2
 - Add initial part for sinusoidal to align it. cos(90 - atan2(amplitude, length/(freq*4)))*(2*cilia_radius)
 - Use a template curve for line type (csv: X,Y only) and interface update. 0.5.6
+- Too many membrane, too many central pair
+- generate_tip_curves not ideal yet
+- The merged has a wrinkle 0.9.1
+
+
+
 
 GUIDELINE
-- Make solid map or solid cap on
+- Save as glb
 
 
 
