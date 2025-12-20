@@ -52,8 +52,8 @@ TODO
 - Movie part (low priority)
 - Make doublet hollow (low priority) or not viable
 - For ArtiaX build, perhaps presupply a model of doublet & central pair volume at 8-nm repeat (expand curve.py).
-- Remove the io?
-- Clean up & refactor code
+- Remove the io (perhaps not)
+- Clean up & refactor code (Priority)
 - Primary cilia
 
 DONE

@@ -1,3 +1,5 @@
+# Not the most obvious io but this write to df allowing to write csv file
+
 import pandas as pd
 import numpy as np
 import csv
