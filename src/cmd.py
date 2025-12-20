@@ -5,7 +5,7 @@ from chimerax.core.commands import CmdDesc, IntArg, FloatArg, StringArg, BoolArg
 import pandas as pd
 import numpy as np
 from chimerax.core.models import Surface
-from .draw import draw_tubules, draw_membrane
+from .draw import draw_tubules, draw_membrane, generate_sphere_surface
 from .geometry.centerline import generate_cilia_structure, get_doublet_centerline
 from .io import generate_cilia_with_tip_csv
 
@@ -581,8 +581,10 @@ def _ciliabuild_from_df(session, df,
         session.models.add_group(doublet_surfs, parent=cilia_root, name=f"DMT{int(doublet_num)}")
         session.logger.info(f"Added doublet {int(doublet_num)}")
         
-        # Draw central pair if requested (using the DoubletNumber = -1)
+    # Draw central pair if requested (using the DoubletNumber = -1)
     cp_data = df[df['DoubletNumber'] == -1]
+    cap_data = df[df['DoubletNumber'] == -2]
+
     if draw_central_pair and len(cp_data) > 0:
         session.logger.info("Drawing central pair (C1, C2)...")
         cp_centerline = cp_data[['X', 'Y', 'Z']].values
@@ -602,12 +604,20 @@ def _ciliabuild_from_df(session, df,
             colors=[cp_color, cp_color],
             group_name="central_pair"
         )
+        
+        if len(cap_data) > 0:
+            cap_surf = generate_sphere_surface(session, tuple(cap_data[['X', 'Y', 'Z']].iloc[0]), radius=default_config.TIP_CAP_RADIUS,
+                            color=cp_color, name="CapComplex", add_to_session=False)
+        
+        if cap_surf:
+            cp_surfs.append(cap_surf)
+
         session.models.add_group(cp_surfs, parent=cilia_root, name="Central Pair")
         session.logger.info(f"Added central pair")
             
     # Draw membrane if requested (using DoubletNumber = 0) 
     membrane_data = df[df['DoubletNumber'] == 0]
-    if draw_central_pair and len(membrane_data) > 0:
+    if membrane and len(membrane_data) > 0:
         session.logger.info("Drawing membrane ...")
         membrane_centerline = membrane_data[['X', 'Y', 'Z']].values
             

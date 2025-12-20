@@ -54,8 +54,8 @@ TODO
 - For ArtiaX build, perhaps presupply a model of doublet & central pair volume at 8-nm repeat (expand curve.py).
 - Remove the io?
 - Clean up & refactor code
-- Add to interface
-- What about cosin drop ignoring transition interface
+- Need to draw the tip in the same one?
+- Make the cap geometry better (cylinder with sphere cap in one end)
 
 DONE
 - Curve and sinusoidal from same direction (Done)
@@ -77,6 +77,8 @@ DONE
 - Too many membrane, too many central pair
 - generate_tip_curves not ideal yet
 - The merged has a wrinkle 0.9.1
+- Add to interface & cosine drop better 0.9.3
+- Add the cap
 
 
 

@@ -5,6 +5,64 @@ import numpy as np
 from chimerax.core.models import Surface
 from chimerax.surface import calculate_vertex_normals
 
+# --- Helper Function to Generate Sphere Geometry ---
+def create_sphere_geometry(center, radius=10.0, segments_u=32, segments_v=16):
+    """
+    Generate vertices and triangles for a sphere using spherical coordinates.
+    
+    Parameters:
+    center (tuple/array): The (X, Y, Z) coordinates of the sphere's center.
+    radius (float): The radius of the sphere.
+    segments_u (int): Number of segments around the azimuth (longitude).
+    segments_v (int): Number of segments along the polar axis (latitude).
+    
+    Returns:
+    tuple: (vertices, triangles) arrays.
+    """
+    center = np.array(center)
+    
+    # Angles for latitude (phi, 0 to pi) and longitude (theta, 0 to 2*pi)
+    phi = np.linspace(0, np.pi, segments_v + 1)
+    theta = np.linspace(0, 2 * np.pi, segments_u, endpoint=False)
+
+    vertices = []
+    
+    # Generate vertices
+    for p in phi:
+        for t in theta:
+            x = center[0] + radius * np.sin(p) * np.cos(t)
+            y = center[1] + radius * np.sin(p) * np.sin(t)
+            z = center[2] + radius * np.cos(p)
+            vertices.append([x, y, z])
+
+    vertices = np.array(vertices, dtype=np.float32)
+    
+    # Generate triangles (quads)
+    triangles = []
+    
+    # Number of vertices per 'ring' (segments_u)
+    v_ring = segments_u
+    
+    # Iterate through each quad
+    for i in range(segments_v):
+        for j in range(segments_u):
+            # Current quad indices:
+            # (i*v_ring + j) --- (i*v_ring + (j+1)%v_ring)
+            #       |                     |
+            # ((i+1)*v_ring + j) --- ((i+1)*v_ring + (j+1)%v_ring)
+            
+            p1 = i * v_ring + j
+            p2 = i * v_ring + (j + 1) % v_ring
+            p3 = (i + 1) * v_ring + (j + 1) % v_ring
+            p4 = (i + 1) * v_ring + j
+            
+            # Triangle 1
+            triangles.append([p1, p4, p3])
+            # Triangle 2
+            triangles.append([p1, p3, p2])
+
+    return vertices, np.array(triangles, dtype=np.int32)
+
 def create_tube_geometry(path_points, radius=10.0, segments=16, capped=True):
     """
     Create tube geometry from a path of points.
@@ -121,7 +179,45 @@ def create_tube_geometry(path_points, radius=10.0, segments=16, capped=True):
     
     return vertices, triangles
 
+# --- Main Sphere Surface Generator ---
+def generate_sphere_surface(session, center=(0.0, 0.0, 0.0), radius=10.0, segments_u=32, segments_v=16,
+                            color=(255, 255, 0, 255), name="sphere", add_to_session=True):
+    """
+    Generate a sphere surface model for a visualization session (replicates tube structure).
+    
+    Note: Sphere vertex normals are calculated directly from the center, 
+    simplifying the normal calculation step.
+    """
+    center = np.array(center)
 
+    # Create geometry
+    vertices, triangles = create_sphere_geometry(center, radius, segments_u, segments_v)
+    
+    # Check for valid geometry (always valid for sphere, but follows tube structure)
+    if len(vertices) == 0:
+        session.logger.warning(f"Skipping surface creation for '{name}': No vertices generated.")
+        return None
+    
+    # Calculate normals (optimized for sphere: normal is the normalized vector from center to vertex)
+    # The 'calculate_vertex_normals' helper is not needed
+    vectors_from_center = vertices - center
+    normals = vectors_from_center / np.linalg.norm(vectors_from_center, axis=1)[:, np.newaxis]
+    
+    # Create surface model
+    surf = Surface(name, session)
+    surf.set_geometry(vertices, normals, triangles)
+    
+    # Set color (convert to 0-255 uint8 array)
+    color_array = np.array(color, dtype=np.uint8)
+    surf.color = color_array
+    
+    # Add to session if requested
+    if add_to_session:
+        # Assumes session.models is a list-like object that accepts new models
+        session.models.add([surf])
+    
+    return surf
+    
 def generate_tube_surface(session, path_points, radius=10.0, segments=16, 
                          color=(255, 255, 0, 255), name="tube", capped=True, add_to_session=True):
     """
@@ -151,6 +247,7 @@ def generate_tube_surface(session, path_points, radius=10.0, segments=16,
         session.models.add([surf])
     
     return surf
+    
 
 
 def generate_centerline_points(length=1500.0, interval=160, start_point=(0, 0, 0)):

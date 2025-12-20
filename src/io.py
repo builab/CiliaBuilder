@@ -5,6 +5,7 @@ import random # Added: required for random.uniform and random.choice
 from . import default_config # Assuming default_config contains necessary constants
 from .geometry.tip import generate_multiple_tip_lengths_in_memory
 
+
 # --- 1. Constant Definitions (Readability Improvement) ---
 # Use constants from default_config, falling back to assumed values if needed.
 # NOTE: The constants INITIAL_LENGTH, TRANSITION_LENGTH, and CILIA_DOUBLET_SHIFT
@@ -69,6 +70,7 @@ def create_mixed_csv_from_memory(all_curves_data, output_filename=None,
     """
     mixed_data = []
     Z_MAX_IDX_B = initial_length + transition_length
+    USE_LIMIT = 1
     
     # Create a list to track how many times each tip length has been used
     # Format: [(data_index, count), ...]
@@ -76,7 +78,7 @@ def create_mixed_csv_from_memory(all_curves_data, output_filename=None,
     
     for doublet_number in range(1, num_doublets + 1):
         # Filter available tip lengths that haven't been used twice yet
-        available_indices = [idx for idx, count in usage_count.items() if count < 2]
+        available_indices = [idx for idx, count in usage_count.items() if count < USE_LIMIT]
         
         if not available_indices:
             # Shouldn't happen with 9 doublets and 10 tip lengths, but handle edge case
@@ -92,7 +94,7 @@ def create_mixed_csv_from_memory(all_curves_data, output_filename=None,
         selected_tip_length = selected_data['tip_length']
         selected_curves = selected_data['curves']
         
-        print(f"Doublet {doublet_number}: Selected from tip_length={selected_tip_length} (used {usage_count[selected_idx]}/2 times)")
+        print(f"Doublet {doublet_number}: Selected from tip_length={selected_tip_length} (used {usage_count[selected_idx]}/{USE_LIMIT} time)")
         
         curve_data = selected_curves[doublet_number - 1] 
         doublet_rows = _generate_doublet_rows(
@@ -298,6 +300,14 @@ def generate_cilia_with_tip_csv(
             cp_shift, -cp_shift  # A_Shift=cp_shift, B_Shift=-cp_shift
         ])
         
+
+    # Create Cap DataFrame and combine with complete data (DoubletNumber = -2)
+    cp_data.append([
+            -2, 0, 0, cp_z_coords[-1],  # DoubletNumber=-2, X=0, Y=0, Z
+            1, 1, 0,       # Idx_A=1, Idx_B=1, Angle=0
+            0, 0  # A_Shift=cp_shift, B_Shift=-cp_shift
+        ])
+    
     # Create CP DataFrame and combine with complete data
     cp_df = pd.DataFrame(cp_data, columns=columns)
     

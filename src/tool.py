@@ -27,7 +27,7 @@ class CiliaBuilder(ToolInstance):
     def __init__(self, session, tool_name):
         super().__init__(session, tool_name)
         
-        # --- NEW: Track the last generated model ---
+        # --- Track the last generated model ---
         self.last_generated_model = None
 
         # Set name displayed on title bar
@@ -38,8 +38,7 @@ class CiliaBuilder(ToolInstance):
         # Build the user interface
         self._build_ui()
         
-        # --- PLACE THE COMMAND HERE ---
-        # This runs the command to set the lighting as soon as the tool is instantiated.
+        # Default lighting setup
         session.logger.info(f"Starting Cilia Builder - Builab 2025")
         session.logger.info("Default setting:\n\tset bgColor white\n\tlighting depthCue false\n\tlighting soft\n\tgraphics silhouettes true\n\tlighting shadows true\nsurface cap true")
         run(session, "set bgColor white", log=False)
@@ -49,7 +48,6 @@ class CiliaBuilder(ToolInstance):
         run(session, "lighting shadows true", log=False)
         run(session, "surface cap true", log=False)
         run(session, "sop cap on", log=False)
-        # ------------------------------
 
 
     def _build_ui(self):
@@ -74,33 +72,34 @@ class CiliaBuilder(ToolInstance):
 
         # Row 0: Total Length (Starts with CILIA_LENGTH)
         general_layout.addWidget(QLabel("Total Length (Å):"), 0, 0)
-        self.length_input = QLineEdit(str(default_config.CILIA_LENGTH)) # Use CILIA default
+        self.length_input = QLineEdit(str(default_config.CILIA_LENGTH))
         general_layout.addWidget(self.length_input, 0, 1)
 
         # Row 1: Structure Radius (Dynamically labeled, starts with CILIA_RADIUS)
         self.radius_label = QLabel("Doublet Ring Radius (Å):")
         general_layout.addWidget(self.radius_label, 1, 0)
-        self.cilia_radius_input = QLineEdit(str(default_config.CILIA_RADIUS)) # Use CILIA default
+        self.cilia_radius_input = QLineEdit(str(default_config.CILIA_RADIUS))
         general_layout.addWidget(self.cilia_radius_input, 1, 1)
         
         # Row 2: Doublets/Triplets Count (Dynamically labeled, starts with CILIA_NUM_DOUBLETS)
         self.count_label = QLabel("Number of Doublets:")
         general_layout.addWidget(self.count_label, 2, 0)
-        self.num_units_input = QLineEdit(str(default_config.CILIA_NUM_DOUBLETS)) # Use CILIA default
+        self.num_units_input = QLineEdit(str(default_config.CILIA_NUM_DOUBLETS))
         general_layout.addWidget(self.num_units_input, 2, 1)
         
         # Row 3: Centerline Type (Dropdown, starts with CILIA_LINE)
         general_layout.addWidget(QLabel("Line Type:"), 3, 0)
         self.line_type_combo = QComboBox()
-        self.line_type_combo.addItems(['straight', 'curve', 'sinusoidal', 'template']) 
-        self.line_type_combo.setCurrentText(default_config.CILIA_LINE) # Use CILIA default
+        # Add 'tip' only for cilia - we'll update this in _update_ui_visibility
+        self.line_type_combo.addItems(['straight', 'curve', 'sinusoidal', 'template', 'tip'])
+        self.line_type_combo.setCurrentText(default_config.CILIA_LINE)
         self.line_type_combo.currentIndexChanged.connect(self._toggle_centerline_inputs)
         general_layout.addWidget(self.line_type_combo, 3, 1)
         
-        # --- Row 4: Template File Input (New) ---
+        # --- Row 4: Template File Input ---
         self.template_file_h_layout = QHBoxLayout()
         
-        self.template_file_input = QLineEdit("") # Empty default
+        self.template_file_input = QLineEdit("")
         self.template_file_h_layout.addWidget(self.template_file_input)
         
         self.browse_button = QPushButton("Browse...")
@@ -109,20 +108,24 @@ class CiliaBuilder(ToolInstance):
         
         self.template_file_group = QWidget()
         self.template_file_group.setLayout(self.template_file_h_layout)
-        # Position in the same row as curve input, will be hidden by default
         general_layout.addWidget(self.template_file_group, 4, 0, 1, 2)
         
-        # Row 5: Curve Input (Starts with CILIA_CURVE_RADIUS)
+        # --- Row 5: Tip Length Input (NEW) ---
+        self.tip_length_label = QLabel("Tip Length (Å):")
+        general_layout.addWidget(self.tip_length_label, 5, 0)
+        self.tip_length_input = QLineEdit(str(default_config.TIP_LENGTH))
+        general_layout.addWidget(self.tip_length_input, 5, 1)
+        
+        # Row 6: Curve Input
         self.curve_radius_label = QLabel("Curve Radius (Å):")
-        general_layout.addWidget(self.curve_radius_label, 5, 0)
-        self.curve_radius_input = QLineEdit(str(default_config.CILIA_CURVE_RADIUS)) # Use CILIA default
-        general_layout.addWidget(self.curve_radius_input, 5, 1)
+        general_layout.addWidget(self.curve_radius_label, 6, 0)
+        self.curve_radius_input = QLineEdit(str(default_config.CILIA_CURVE_RADIUS))
+        general_layout.addWidget(self.curve_radius_input, 6, 1)
 
-        # Row 6: Sinusoidal Inputs (Combined, starts with CILIA SINE defaults)
-        # --- FIX START: Wrap Sine controls in a QWidget container ---
+        # Row 7: Sinusoidal Inputs
         self.sine_controls_widget = QWidget()
         sine_h_layout = QHBoxLayout(self.sine_controls_widget) 
-        sine_h_layout.setContentsMargins(0, 0, 0, 0) # Remove extra margin from the inner layout
+        sine_h_layout.setContentsMargins(0, 0, 0, 0)
         
         self.sine_freq_label = QLabel("Sine Frequency:")
         sine_h_layout.addWidget(self.sine_freq_label)
@@ -134,8 +137,7 @@ class CiliaBuilder(ToolInstance):
         self.sine_amplitude_input = QLineEdit(str(default_config.CILIA_SINE_AMPLITUDE)) 
         sine_h_layout.addWidget(self.sine_amplitude_input)
         
-        general_layout.addWidget(self.sine_controls_widget, 6, 0, 1, 2) # Add the QWidget container to the grid
-        # --- FIX END ---
+        general_layout.addWidget(self.sine_controls_widget, 7, 0, 1, 2)
 
         general_group.setLayout(general_layout)
         main_layout.addWidget(general_group)
@@ -149,7 +151,7 @@ class CiliaBuilder(ToolInstance):
         def color_to_string(color_tuple):
             return ",".join(map(str, color_tuple))
 
-        # Row 0: Cilia Tubule Colors (A, B, CP on same line)
+        # Row 0: Cilia Tubule Colors
         cilia_color_h_layout = QHBoxLayout()
         cilia_color_h_layout.addWidget(QLabel("A-tubule:"))
         self.cilia_a_color_input = QLineEdit(color_to_string(default_config.CILIA_DOUBLET_A_COLOR))
@@ -168,7 +170,7 @@ class CiliaBuilder(ToolInstance):
         
         cilia_layout.addLayout(cilia_color_h_layout, 0, 0, 1, 2)
         
-        # Row 1: Draw Central Pair and Draw Membrane (Combined)
+        # Row 1: Draw Central Pair and Draw Membrane
         draw_h_layout = QHBoxLayout()
         self.draw_cp_check = QCheckBox("Draw Central Pair (C1/C2)")
         self.draw_cp_check.setChecked(default_config.CILIA_DRAW_CENTRAL_PAIR)
@@ -180,7 +182,7 @@ class CiliaBuilder(ToolInstance):
         draw_h_layout.addStretch()
         cilia_layout.addLayout(draw_h_layout, 1, 0, 1, 2)
         
-        # Row 2: Length Differences (A-B and CP-Doublet on same line)
+        # Row 2: Length Differences
         length_diff_h_layout = QHBoxLayout()
         length_diff_h_layout.addWidget(QLabel("A-B Diff (Å):"))
         self.cilia_doublet_length_diff_input = QLineEdit(str(default_config.CILIA_DOUBLET_LENGTH_DIFF))
@@ -196,7 +198,7 @@ class CiliaBuilder(ToolInstance):
 
         cilia_layout.addLayout(length_diff_h_layout, 2, 0, 1, 2)
         
-        # Row 3: Membrane Radius and Fraction (Combined)
+        # Row 3: Membrane Parameters
         membrane_param_h_layout = QHBoxLayout()
         membrane_param_h_layout.addWidget(QLabel("Membrane Radius (Å):"))
         self.membrane_radius_input = QLineEdit(str(default_config.CILIA_MEMBRANE_RADIUS))
@@ -216,7 +218,7 @@ class CiliaBuilder(ToolInstance):
         self.centriole_group = QGroupBox("Centriole-Specific Parameters (9x3)")
         centriole_layout = QGridLayout()
         
-        # Row 0: Centriole Tubule Colors (A, B, C on same line)
+        # Row 0: Centriole Tubule Colors
         centriole_color_h_layout = QHBoxLayout()
         centriole_color_h_layout.addWidget(QLabel("A-tubule:"))
         self.centriole_a_color_input = QLineEdit(color_to_string(default_config.CENTRIOLE_TRIPLET_A_COLOR))
@@ -235,19 +237,19 @@ class CiliaBuilder(ToolInstance):
         
         centriole_layout.addLayout(centriole_color_h_layout, 0, 0, 1, 2)
         
-        # Row 1: Centriole Angle Offset (Default 60.0)
+        # Row 1: Centriole Angle Offset
         centriole_layout.addWidget(QLabel("Triplet Angle Offset (°):"), 1, 0)
         self.centriole_angle_offset_input = QLineEdit(str(default_config.CENTRIOLE_OFFSET_ANGLE)) 
         centriole_layout.addWidget(self.centriole_angle_offset_input, 1, 1)
 
-        # Row 2: Triplet B-Length Difference (Default 0.1)
+        # Row 2: Triplet B-Length Difference
         centriole_layout.addWidget(QLabel("B Length Diff (Å):"), 2, 0)
-        self.centriole_b_length_diff_input = QLineEdit(str(default_config.CENTRIOLE_TRIPLET_B_LENGTH_DIFF)) # Changed var name
+        self.centriole_b_length_diff_input = QLineEdit(str(default_config.CENTRIOLE_TRIPLET_B_LENGTH_DIFF))
         centriole_layout.addWidget(self.centriole_b_length_diff_input, 2, 1)
         
-        # Row 3: Triplet C-Length Difference (Default 0.2)
+        # Row 3: Triplet C-Length Difference
         centriole_layout.addWidget(QLabel("C Length Diff (Å):"), 3, 0)
-        self.centriole_c_length_diff_input = QLineEdit(str(default_config.CENTRIOLE_TRIPLET_C_LENGTH_DIFF)) # Changed var name
+        self.centriole_c_length_diff_input = QLineEdit(str(default_config.CENTRIOLE_TRIPLET_C_LENGTH_DIFF))
         centriole_layout.addWidget(self.centriole_c_length_diff_input, 3, 1)
         
         self.centriole_group.setLayout(centriole_layout)
@@ -259,7 +261,7 @@ class CiliaBuilder(ToolInstance):
         # --- Control Button Group ---
         control_h_layout = QHBoxLayout()
         
-        # NEW: Close Old Model Checkbox
+        # Close Old Model Checkbox
         self.close_old_model_check = QCheckBox("Close old model")
         self.close_old_model_check.setChecked(True)
         control_h_layout.addWidget(self.close_old_model_check)
@@ -288,11 +290,7 @@ class CiliaBuilder(ToolInstance):
         
     def _browse_template_file(self):
         """Open a file dialog to select the template centerline file"""
-        # FIX: Use self.tool_window.ui_area, which is the QWidget containing the tool's UI,
-        # ensuring it satisfies the QFileDialog constructor's type requirement.
         file_dialog = QFileDialog(self.tool_window.ui_area)
-        
-        # Suggest opening common file types for coordinates (e.g., PDB, CSV, TXT)
         file_dialog.setNameFilter("Centerline Files (*.pdb *.csv *.txt);;All Files (*)")
         file_dialog.setWindowTitle("Select Centerline Template File")
         
@@ -307,8 +305,13 @@ class CiliaBuilder(ToolInstance):
         mode = self.mode_combo.currentText()
         is_cilia = mode.startswith('Cilia')
         
-        # Update General Labels and Defaults
+        # Update line type combo options based on mode
+        current_line = self.line_type_combo.currentText()
+        self.line_type_combo.clear()
+        
         if is_cilia:
+            # Cilia has 'tip' option
+            self.line_type_combo.addItems(['straight', 'curve', 'sinusoidal', 'template', 'tip'])
             self.radius_label.setText("Cilia Radius (Å):")
             self.count_label.setText("Number of Doublets:")
             
@@ -316,12 +319,19 @@ class CiliaBuilder(ToolInstance):
             self.length_input.setText(str(default_config.CILIA_LENGTH))
             self.cilia_radius_input.setText(str(default_config.CILIA_RADIUS))
             self.num_units_input.setText(str(default_config.CILIA_NUM_DOUBLETS))
-            self.line_type_combo.setCurrentText(default_config.CILIA_LINE)
             self.curve_radius_input.setText(str(default_config.CILIA_CURVE_RADIUS))
             self.sine_frequency_input.setText(str(default_config.CILIA_SINE_FREQUENCY))
             self.sine_amplitude_input.setText(str(default_config.CILIA_SINE_AMPLITUDE))
             
+            # Restore line type if valid for cilia
+            if current_line in ['straight', 'curve', 'sinusoidal', 'template', 'tip']:
+                self.line_type_combo.setCurrentText(current_line)
+            else:
+                self.line_type_combo.setCurrentText(default_config.CILIA_LINE)
+            
         else:
+            # Centriole does NOT have 'tip' option
+            self.line_type_combo.addItems(['straight', 'curve', 'sinusoidal', 'template'])
             self.radius_label.setText("Centriole Radius (Å):")
             self.count_label.setText("Number of Triplets:")
             
@@ -329,10 +339,15 @@ class CiliaBuilder(ToolInstance):
             self.length_input.setText(str(default_config.CENTRIOLE_LENGTH))
             self.cilia_radius_input.setText(str(default_config.CENTRIOLE_RADIUS))
             self.num_units_input.setText(str(default_config.CENTRIOLE_NUM_TRIPLETS))
-            self.line_type_combo.setCurrentText(default_config.CENTRIOLE_LINE)
             self.curve_radius_input.setText(str(default_config.CENTRIOLE_CURVE_RADIUS))
             self.sine_frequency_input.setText(str(default_config.CENTRIOLE_SINE_FREQUENCY))
             self.sine_amplitude_input.setText(str(default_config.CENTRIOLE_SINE_AMPLITUDE))
+            
+            # Restore line type if valid for centriole (excluding 'tip')
+            if current_line in ['straight', 'curve', 'sinusoidal', 'template']:
+                self.line_type_combo.setCurrentText(current_line)
+            else:
+                self.line_type_combo.setCurrentText(default_config.CENTRIOLE_LINE)
         
         # Toggle Specific Groups
         self.cilia_group.setVisible(is_cilia)
@@ -343,27 +358,31 @@ class CiliaBuilder(ToolInstance):
 
 
     def _toggle_centerline_inputs(self):
-        """Enable/disable curve, sine, or template inputs based on line type dropdown"""
+        """Enable/disable curve, sine, template, or tip inputs based on line type dropdown"""
         line_type = self.line_type_combo.currentText()
         
         is_curve = line_type == 'curve'
         is_sine = line_type == 'sinusoidal'
         is_template = line_type == 'template'
+        is_tip = line_type == 'tip'
         
-        # 1. Curve Inputs (Only visible for 'curve')
+        # 1. Curve Inputs
         self.curve_radius_label.setVisible(is_curve)
         self.curve_radius_input.setVisible(is_curve)
         self.curve_radius_label.setEnabled(is_curve)
         self.curve_radius_input.setEnabled(is_curve)
         
-        # 2. Sine Inputs (Only visible for 'sinusoidal') - Target the QWidget container
+        # 2. Sine Inputs
         self.sine_controls_widget.setVisible(is_sine)
-        # We set the overall widget visibility, so individual enable/disable is not strictly needed but included for thoroughness if needed later
-        # for inputs inside the widget, e.g. self.sine_frequency_input.setEnabled(is_sine)
         
-        # 3. Template Inputs (Only visible for 'template')
+        # 3. Template Inputs
         self.template_file_group.setVisible(is_template)
-        # Note: 'straight' line type will hide all three groups above (curve, sine, template).
+        
+        # 4. Tip Inputs (NEW)
+        self.tip_length_label.setVisible(is_tip)
+        self.tip_length_input.setVisible(is_tip)
+        self.tip_length_label.setEnabled(is_tip)
+        self.tip_length_input.setEnabled(is_tip)
 
 
     def _parse_color(self, color_string):
@@ -400,7 +419,8 @@ class CiliaBuilder(ToolInstance):
             sine_frequency = float(self.sine_frequency_input.text())
             sine_amplitude = float(self.sine_amplitude_input.text())
             
-            template_file = self.template_file_input.text() # Get the new template file path
+            template_file = self.template_file_input.text()
+            tip_length = float(self.tip_length_input.text())  # NEW
             
             if centerline_type == 'template' and not template_file:
                 raise ValueError("Template file path is required when line type is 'template'.")
@@ -414,9 +434,6 @@ class CiliaBuilder(ToolInstance):
 
             is_cilia = self.mode_combo.currentText().startswith('Cilia')
             new_model = None
-            
-            # NOTE: We assume the target cmd.py functions (ciliabuild and centriolebuild) 
-            # have been updated to accept a 'template_file' keyword argument.
             
             if is_cilia:
                 # --- CILIA (9x2 + 2) Logic - Call ciliabuild ---
@@ -444,7 +461,8 @@ class CiliaBuilder(ToolInstance):
                     curve_radius=curve_radius,
                     sine_frequency=sine_frequency,
                     sine_amplitude=sine_amplitude,
-                    template_file=template_file, # PASSED NEW ARGUMENT
+                    template_file=template_file,
+                    tip_length=tip_length,  # NEW
                     num_doublets=num_units,
                     cilia_radius=ring_radius,
                     draw_central_pair=draw_central_pair,
@@ -481,7 +499,7 @@ class CiliaBuilder(ToolInstance):
                     curve_radius=curve_radius,
                     sine_frequency=sine_frequency,
                     sine_amplitude=sine_amplitude,
-                    template_file=template_file, # PASSED NEW ARGUMENT
+                    template_file=template_file,
                     num_triplets=num_units,
                     centriole_radius=ring_radius,
                     centriole_angle_offset=angle_offset,

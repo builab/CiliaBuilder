@@ -9,7 +9,7 @@ TRANSITION_LENGTH = default_config.TIP_TRANSITION_LENGTH # Z-coordinate for cont
 def generate_tip_curves(tip_length, cilia_radius, transition_radius, final_radius, interval=MAX_INTERVAL):
     """
     Generate 9 cilia curves centered around the Z axis.
-    Uses cosine interpolation for smooth, monotonic radius decrease.
+    Uses single cosine interpolation for smooth, monotonic radius decrease.
     
     Parameters:
     -----------
@@ -18,7 +18,7 @@ def generate_tip_curves(tip_length, cilia_radius, transition_radius, final_radiu
     cilia_radius : float
         Radius of the circle at Z=0 (starting points)
     transition_radius : float
-        Radius of the circle at Z=TRANSITION_LENGTH (third points)
+        Radius at Z=TRANSITION_LENGTH (not used in single-drop version, kept for compatibility)
     final_radius : float
         Radius of the circle at Z=tip_length (final points)
     
@@ -35,7 +35,7 @@ def generate_tip_curves(tip_length, cilia_radius, transition_radius, final_radiu
     n_points_linear = int(np.ceil(INITIAL_LENGTH / interval)) + 1
     n_points_linear = max(n_points_linear, 5)
 
-    # Segment 2: p2 to p4 (Length = tip_length - INITIAL_LENGTH)
+    # Segment 2: p2 to p4 (Length = tip_length)
     spline_sampling_length = tip_length
     n_points_spline = int(np.ceil(spline_sampling_length / interval)) + 1
     n_points_spline = max(n_points_spline, 5)
@@ -44,7 +44,7 @@ def generate_tip_curves(tip_length, cilia_radius, transition_radius, final_radiu
     z_spline = np.linspace(INITIAL_LENGTH, tip_length + INITIAL_LENGTH, n_points_spline)
 
     for i in range(num_lines):
-        angle = (i / num_lines) * 2 * np.pi + np.pi/2  # Add π/2 (90°) to match curve.py
+        angle = (i / num_lines) * 2 * np.pi  # Add π/2 (90°) to match curve.py
         
         # Define 4 control points
         p1 = np.array([cilia_radius * np.cos(angle), cilia_radius * np.sin(angle), 0])
@@ -59,29 +59,14 @@ def generate_tip_curves(tip_length, cilia_radius, transition_radius, final_radiu
             p1 + t * (p2 - p1) for t in t_linear
         ])
         
-        # --- Smooth radius transition using cosine interpolation ---
-        # Calculate radius at each Z using smooth cosine interpolation
-        radii = []
-        for z in z_spline:
-            if z <= INITIAL_LENGTH:
-                # Should not happen due to z_spline range, but handle edge case
-                r = cilia_radius
-            elif z <= TRANSITION_LENGTH:
-                # Interpolate from cilia_radius to transition_radius using cosine
-                t = (z - INITIAL_LENGTH) / (TRANSITION_LENGTH - INITIAL_LENGTH)
-                # Cosine interpolation: smooth transition from 0 to 1
-                t_smooth = (1 - np.cos(t * np.pi)) / 2
-                r = cilia_radius + t_smooth * (transition_radius - cilia_radius)
-            else:
-                # Interpolate from transition_radius to final_radius using cosine
-                t = (z - TRANSITION_LENGTH) / (tip_length + INITIAL_LENGTH - TRANSITION_LENGTH)
-                # Cosine interpolation
-                t_smooth = (1 - np.cos(t * np.pi)) / 2
-                r = transition_radius + t_smooth * (final_radius - transition_radius)
-            
-            radii.append(r)
-        
-        radii = np.array(radii)
+        # --- Single smooth radius transition using cosine interpolation ---
+        # Interpolate directly from cilia_radius to final_radius
+        # Calculate normalized position along the tip length
+        t = (z_spline - INITIAL_LENGTH) / (tip_length + INITIAL_LENGTH - INITIAL_LENGTH)
+        # Cosine interpolation: smooth transition from 0 to 1
+        t_smooth = (1 - np.cos(t * np.pi)) / 2
+        # Calculate radius at each Z position
+        radii = cilia_radius + t_smooth * (final_radius - cilia_radius)
         
         # Calculate X and Y based on radius and angle
         x_new = radii * np.cos(angle)
