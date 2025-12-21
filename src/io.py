@@ -18,6 +18,13 @@ REQUIRED_COLUMNS = [
     "A_Shift", "B_Shift"
 ]
 
+EXTENDED_COLUMNS = [
+    'DoubletNumber', 'X', 'Y', 'Z', 
+    'Idx_A', 'Idx_B', 'Idx_C', 
+    'Angle', 
+    'A_Shift', 'B_Shift', 'C_Shift'
+]
+
 def load_template_data(template_filename: str):
     # 1. Get the path to the current Python file (where this function is defined)
     #    This ensures we know exactly where 'main_script.py' is.
@@ -87,51 +94,70 @@ def read_3d_csv(file_path):
     
     return df[REQUIRED_COLUMNS] # Return only the validated columns
     
+import pandas as pd
+import sys
+
+# Assume EXTENDED_COLUMNS is globally defined or imported:
+# EXTENDED_COLUMNS = ['DoubletNumber', 'X', 'Y', 'Z', 'Idx_A', 'Idx_B', 'Idx_C', 'Angle', 'A_Shift', 'B_Shift', 'C_Shift']
+
 def write_3d_csv(df: pd.DataFrame, file_path: str):
     """
-    Writes a DataFrame to a CSV file, ensuring only the required 3D geometry 
-    columns are included. It prints a warning if the input DataFrame contains 
-    extra, unused columns.
+    Writes a DataFrame to a CSV file, ensuring only the EXTENDED_COLUMNS
+    are included in the specified order. It automatically adds 'Idx_C'
+    and 'C_Shift' with zero values if they are missing.
 
     Args:
         df (pd.DataFrame): The DataFrame containing the microtubule geometry data.
         file_path (str): The full path where the CSV file should be saved.
     """
     
-    # 1. Check for missing required columns (for robustness)
-    missing_columns = [col for col in REQUIRED_COLUMNS if col not in df.columns]
-    if missing_columns:
+    # 1. Create a working copy of the DataFrame to modify
+    df_output = df.copy()
+
+    # 2. Ensure all required columns for the final output are present.
+    # Add 'Idx_C' and 'C_Shift' with default 0 if they don't exist.
+    if 'Idx_C' not in df_output.columns:
+        df_output['Idx_C'] = 0
+        
+    if 'C_Shift' not in df_output.columns:
+        df_output['C_Shift'] = 0
+        
+    # Check for missing core columns (all columns in EXTENDED_COLUMNS must now exist 
+    # in df_output due to the previous checks and default assignments)
+    missing_core_columns = [col for col in EXTENDED_COLUMNS if col not in df_output.columns]
+    if missing_core_columns:
+        # This check should theoretically only pass if columns like 'X', 'Y', 'Z' were missing.
         error_msg = (
-            f"Cannot write CSV: Input DataFrame is missing required columns: "
-            f"{missing_columns}"
+            f"Cannot write CSV: Input DataFrame is missing core geometry columns: "
+            f"{missing_core_columns}"
         )
-        # Printing error to stderr
         print(error_msg, file=sys.stderr)
         return
 
-    # 2. Check for extra columns and print a warning
-    extra_columns = [col for col in df.columns if col not in REQUIRED_COLUMNS]
+    # 3. Check for extra columns and print a warning
+    extra_columns = [col for col in df_output.columns if col not in EXTENDED_COLUMNS]
     if extra_columns:
-        # Print warning to stderr so it's clearly visible as a non-fatal error
         print("="*50, file=sys.stderr)
         print("WARNING: Extra columns found in the input DataFrame.", file=sys.stderr)
         print(f"Ignored columns: {extra_columns}", file=sys.stderr)
-        print(f"Only columns: {REQUIRED_COLUMNS} will be written.", file=sys.stderr)
+        print(f"Only columns: {EXTENDED_COLUMNS} will be written.", file=sys.stderr)
         print("="*50, file=sys.stderr)
 
-    # 3. Select only the required columns and write to CSV
+    # 4. Select only the required columns, format, and write to CSV
     try:
-        # Select columns in the required order
-        df_output = df[REQUIRED_COLUMNS]
-        df_output['X'] = df_output['X'].map('{:.2f}'.format)
-        df_output['Y'] = df_output['Y'].map('{:.2f}'.format)
-        df_output['Z'] = df_output['Z'].map('{:.2f}'.format)
+        # Select columns in the required order from EXTENDED_COLUMNS
+        df_output = df_output[EXTENDED_COLUMNS]
+        
+        # Apply formatting to position columns
+        df_output['X'] = df_output['X'].apply(lambda x: '{:.2f}'.format(x))
+        df_output['Y'] = df_output['Y'].apply(lambda x: '{:.2f}'.format(x))
+        df_output['Z'] = df_output['Z'].apply(lambda x: '{:.2f}'.format(x))
+
         df_output.to_csv(file_path, index=False)
         print(f"\nSuccessfully wrote data to '{file_path}'.")
         print(f"File includes only the required columns.")
         
     except Exception as e:
-        # Printing error to stderr
         print(f"Error occurred while writing to CSV: {e}", file=sys.stderr)
 
 # --- 1. Constant Definitions (Readability Improvement) ---

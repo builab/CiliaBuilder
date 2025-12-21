@@ -54,6 +54,8 @@ def ciliabuild(session,
     """
     
     centerline_type = line 
+    csv_filename = 'cilia.csv'
+
     
     if centerline_type == 'tip':
         session.logger.info(f"Generating cilia with tip geometry...")
@@ -73,9 +75,9 @@ def ciliabuild(session,
         )
         # Only turn on writing by default for this
         write_csv = True
-        csv_filename = 'cilia.csv'
+        csv_filename = 'ciliatip.csv'
         
-    elif centerline_type == 'primary':
+    elif centerline_type == 'primarycilia':
         session.logger.info(f"Generating primary cilia ...")
         
         df_template = load_template_data(PRIMARYCILIA_TEMPLATE)
@@ -92,7 +94,7 @@ def ciliabuild(session,
         csv_filename = 'primarycilia.csv'
         
     else:
-        # Generate structure for 'straight', 'curve', 'sinusoidal', 'template'
+        # Generate structure for 'straight', 'curve', 'sinusoidal', '2Dtemplate'
         session.logger.info(f"Generating cilia structure with {centerline_type} centerline...")
         
         structure = generate_cilia_structure(
@@ -600,6 +602,7 @@ def _ciliabuild_from_df(session, df,
     # Draw central pair if requested (using the DoubletNumber = -1)
     cp_data = df[df['DoubletNumber'] == -1]
     cap_data = df[df['DoubletNumber'] == -2]
+    cap_surf = None
 
     if draw_central_pair and len(cp_data) > 0:
         session.logger.info("Drawing central pair (C1, C2)...")
@@ -622,8 +625,6 @@ def _ciliabuild_from_df(session, df,
         )
         
         if len(cap_data) > 0:
-            #cap_surf = generate_sphere_surface(session, tuple(cap_data[['X', 'Y', 'Z']].iloc[0]), radius=default_config.TIP_CAP_RADIUS,
-            #                color=default_config.CILIA_CAP_COLOR, name="CapComplex", add_to_session=False)
             cap_surf = generate_capsule_surface(session, tuple(cap_data[['X', 'Y', 'Z']].iloc[0]), capsule_length=default_config.TIP_CAP_LENGTH,
                             radius=default_config.TIP_CAP_RADIUS, color=default_config.CILIA_CAP_COLOR, name="CapComplex", add_to_session=False)
         

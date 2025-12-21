@@ -165,10 +165,10 @@ def generate_centerline_points(length=10000.0, num_points=501,
         x_center, y_center, z_center = _generate_curved_centerline(t, length, curve_radius)
     elif centerline_type == 'sinusoidal':
         x_center, y_center, z_center = _generate_sinusoidal_centerline(t, length, sine_frequency, sine_amplitude)
-    elif centerline_type == 'template':
+    elif centerline_type == '2Dtemplate':
         x_center, y_center, z_center = _generate_template_centerline(t, length, template_file)
     else:
-        raise ValueError("centerline_type must be 'straight', 'curve', 'sinusoidal', or 'template'")
+        raise ValueError("centerline_type must be 'straight', 'curve', 'sinusoidal', or '2Dtemplate'")
     
     # Combine into array
     points = np.column_stack([x_center, y_center, z_center]).astype(np.float32)

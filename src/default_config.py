@@ -11,7 +11,7 @@ Z_OFFSET_END = 2 * MAX_INTERVAL  # Offset to draw centriole & cilia
 # CILIA DEFAULTS (9x2 + 2)
 # ============================================================================
 # Structure Parameters
-CILIA_LENGTH = 15000  # Angstroms
+CILIA_LENGTH = 10000  # Angstroms
 CILIA_NUM_DOUBLETS = 9
 CILIA_RADIUS = 875.0  # Angstroms
 CILIA_DRAW_CENTRAL_PAIR = True
@@ -31,7 +31,7 @@ CILIA_DOUBLET_A_RADIUS = 125.0  # Angstroms
 CILIA_DOUBLET_B_RADIUS = 135.0  # Angstroms
 CILIA_DOUBLET_SHIFT = 70.0  # Angstroms
 CILIA_DOUBLET_LENGTH_DIFF = 5.0  # A - B length difference (Angstroms)
-CILIA_CP_DOUBLET_LENGTH_DIFF = 200.0  # CP - doublet length difference (Angstroms)
+CILIA_CP_DOUBLET_LENGTH_DIFF = 300.0  # CP - doublet length difference (Angstroms)
 
 
 # Central Pair Geometry

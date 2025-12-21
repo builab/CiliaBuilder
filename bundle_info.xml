@@ -37,6 +37,9 @@ will be displayed without the ChimeraX- prefix.
   <!-- Non-Python files that are part of package -->
   <DataFiles>
     <DataFile>docs/user/tools/CiliaBuilder.html</DataFile>
+    <DataFile>geometry/primarycilia_template.csv</DataFile>
+    <DataFile>geometry/primarycilia_good.csv</DataFile>
+
   </DataFiles>
 
   <Classifiers>

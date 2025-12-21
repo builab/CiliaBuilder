@@ -11,7 +11,8 @@ from Qt.QtWidgets import (QVBoxLayout, QHBoxLayout, QGridLayout,
 from Qt.QtCore import Qt
 
 # Import the command functions from cmd.py
-from .cmd import ciliabuild, centriolebuild 
+# ADDED ciliabuild_from_csv for the new '3Dtemplate' option
+from .cmd import ciliabuild, centriolebuild, ciliabuild_from_csv 
 
 # Import default_config
 from . import default_config
@@ -90,8 +91,8 @@ class CiliaBuilder(ToolInstance):
         # Row 3: Centerline Type (Dropdown, starts with CILIA_LINE)
         general_layout.addWidget(QLabel("Line Type:"), 3, 0)
         self.line_type_combo = QComboBox()
-        # Add 'tip' only for cilia - we'll update this in _update_ui_visibility
-        self.line_type_combo.addItems(['straight', 'curve', 'sinusoidal', 'template', 'tip'])
+        # Updated Cilia line types: added '3Dtemplate'
+        self.line_type_combo.addItems(['straight', 'curve', 'sinusoidal', 'tip', 'primarycilia', '2Dtemplate', '3Dtemplate'])
         self.line_type_combo.setCurrentText(default_config.CILIA_LINE)
         self.line_type_combo.currentIndexChanged.connect(self._toggle_centerline_inputs)
         general_layout.addWidget(self.line_type_combo, 3, 1)
@@ -310,8 +311,8 @@ class CiliaBuilder(ToolInstance):
         self.line_type_combo.clear()
         
         if is_cilia:
-            # Cilia has 'tip' option
-            self.line_type_combo.addItems(['straight', 'curve', 'sinusoidal', 'template', 'tip'])
+            # Cilia updated options: added '3Dtemplate'
+            self.line_type_combo.addItems(['straight', 'curve', 'sinusoidal', 'tip', 'primarycilia', '2Dtemplate', '3Dtemplate'])
             self.radius_label.setText("Cilia Radius (Å):")
             self.count_label.setText("Number of Doublets:")
             
@@ -323,15 +324,16 @@ class CiliaBuilder(ToolInstance):
             self.sine_frequency_input.setText(str(default_config.CILIA_SINE_FREQUENCY))
             self.sine_amplitude_input.setText(str(default_config.CILIA_SINE_AMPLITUDE))
             
-            # Restore line type if valid for cilia
-            if current_line in ['straight', 'curve', 'sinusoidal', 'template', 'tip']:
+            # Restore line type if valid for cilia (added '3Dtemplate')
+            valid_cilia_lines = ['straight', 'curve', 'sinusoidal', 'template', 'tip', 'primarycilia', '2Dtemplate', '3Dtemplate']
+            if current_line in valid_cilia_lines:
                 self.line_type_combo.setCurrentText(current_line)
             else:
                 self.line_type_combo.setCurrentText(default_config.CILIA_LINE)
             
         else:
-            # Centriole does NOT have 'tip' option
-            self.line_type_combo.addItems(['straight', 'curve', 'sinusoidal', 'template'])
+            # Centriole updated options: 'template' removed
+            self.line_type_combo.addItems(['straight', 'curve', 'sinusoidal'])
             self.radius_label.setText("Centriole Radius (Å):")
             self.count_label.setText("Number of Triplets:")
             
@@ -343,8 +345,9 @@ class CiliaBuilder(ToolInstance):
             self.sine_frequency_input.setText(str(default_config.CENTRIOLE_SINE_FREQUENCY))
             self.sine_amplitude_input.setText(str(default_config.CENTRIOLE_SINE_AMPLITUDE))
             
-            # Restore line type if valid for centriole (excluding 'tip')
-            if current_line in ['straight', 'curve', 'sinusoidal', 'template']:
+            # Restore line type if valid for centriole (excluding 'tip' and 'template' options)
+            valid_centriole_lines = ['straight', 'curve', 'sinusoidal']
+            if current_line in valid_centriole_lines:
                 self.line_type_combo.setCurrentText(current_line)
             else:
                 self.line_type_combo.setCurrentText(default_config.CENTRIOLE_LINE)
@@ -363,7 +366,8 @@ class CiliaBuilder(ToolInstance):
         
         is_curve = line_type == 'curve'
         is_sine = line_type == 'sinusoidal'
-        is_template = line_type == 'template'
+        # Check for template types that require a file input box
+        is_file_template = line_type in ('2Dtemplate', '3Dtemplate') 
         is_tip = line_type == 'tip'
         
         # 1. Curve Inputs
@@ -375,10 +379,10 @@ class CiliaBuilder(ToolInstance):
         # 2. Sine Inputs
         self.sine_controls_widget.setVisible(is_sine)
         
-        # 3. Template Inputs
-        self.template_file_group.setVisible(is_template)
+        # 3. Template File Inputs (Visible ONLY for 2Dtemplate and 3Dtemplate)
+        self.template_file_group.setVisible(is_file_template)
         
-        # 4. Tip Inputs (NEW)
+        # 4. Tip Inputs 
         self.tip_length_label.setVisible(is_tip)
         self.tip_length_input.setVisible(is_tip)
         self.tip_length_label.setEnabled(is_tip)
@@ -420,11 +424,8 @@ class CiliaBuilder(ToolInstance):
             sine_amplitude = float(self.sine_amplitude_input.text())
             
             template_file = self.template_file_input.text()
-            tip_length = float(self.tip_length_input.text())  # NEW
+            tip_length = float(self.tip_length_input.text())
             
-            if centerline_type == 'template' and not template_file:
-                raise ValueError("Template file path is required when line type is 'template'.")
-
             if length <= 0 or num_units < 0 or ring_radius <= 0:
                  raise ValueError("Length, number of units, and ring radius must be positive.")
 
@@ -435,49 +436,84 @@ class CiliaBuilder(ToolInstance):
             is_cilia = self.mode_combo.currentText().startswith('Cilia')
             new_model = None
             
+            # --- CILIA (9x2 + 2) Logic ---
             if is_cilia:
-                # --- CILIA (9x2 + 2) Logic - Call ciliabuild ---
-                
-                # Parse cilia colors
+                # Parse Cilia colors and other parameters needed for both generation methods
                 cilia_a_color = self._parse_color(self.cilia_a_color_input.text())
                 cilia_b_color = self._parse_color(self.cilia_b_color_input.text())
                 cilia_cp_color = self._parse_color(self.cilia_cp_color_input.text())
                 
-                self.session.logger.info(f"Cilia colors - A: {cilia_a_color}, B: {cilia_b_color}, CP: {cilia_cp_color}")
-                
-                # Cilia-specific inputs
                 draw_central_pair = self.draw_cp_check.isChecked()
                 should_draw_membrane = self.draw_membrane_check.isChecked() 
-                doublet_length_diff = float(self.cilia_doublet_length_diff_input.text())
-                cp_doublet_length_diff = float(self.cilia_cp_doublet_length_diff_input.text())
                 membrane_radius = float(self.membrane_radius_input.text())
                 membrane_fraction = float(self.membrane_fraction_input.text())
-             
-                # Call the command function and get the returned model
-                new_model = ciliabuild(
-                    session=self.session,
-                    length=length, 
-                    line=centerline_type,
-                    curve_radius=curve_radius,
-                    sine_frequency=sine_frequency,
-                    sine_amplitude=sine_amplitude,
-                    template_file=template_file,
-                    tip_length=tip_length,  # NEW
-                    num_doublets=num_units,
-                    cilia_radius=ring_radius,
-                    draw_central_pair=draw_central_pair,
-                    membrane=should_draw_membrane,
-                    membrane_radius=membrane_radius,
-                    membrane_fraction=membrane_fraction,
-                    doublet_length_diff=doublet_length_diff,
-                    cp_doublet_length_diff=cp_doublet_length_diff,
-                    doublet_a_color=cilia_a_color,
-                    doublet_b_color=cilia_b_color,
-                    cp_color=cilia_cp_color
-                )
+                
+                if centerline_type == '3Dtemplate':
+                    # --- EXECUTION BRANCH 1: 3Dtemplate (ciliabuild_from_csv) ---
+                    if not template_file:
+                        raise ValueError("Template file path is required when line type is '3Dtemplate'.")
+
+                    self.session.logger.info(f"Generating cilia from 3D template file: {template_file}")
+                    
+                    # Call ciliabuild_from_csv, passing only the necessary rendering parameters
+                    new_model = ciliabuild_from_csv(
+                        session=self.session,
+                        template_csv=template_file,
+                        draw_central_pair=draw_central_pair,
+                        membrane=should_draw_membrane,
+                        membrane_fraction=membrane_fraction,
+                        membrane_radius=membrane_radius,
+                        # Pass geometry defaults (not exposed in UI)
+                        doublet_a_radius=default_config.CILIA_DOUBLET_A_RADIUS, 
+                        doublet_b_radius=default_config.CILIA_DOUBLET_B_RADIUS,
+                        doublet_shift=default_config.CILIA_DOUBLET_SHIFT,
+                        cp_radius=default_config.CILIA_CP_RADIUS,
+                        cp_shift=default_config.CILIA_CP_SHIFT,
+                        # Pass colors
+                        doublet_a_color=cilia_a_color,
+                        doublet_b_color=cilia_b_color,
+                        cp_color=cilia_cp_color,
+                        membrane_color=default_config.CILIA_MEMBRANE_COLOR # Use default as it's not exposed
+                    )
+                
+                else:
+                    # --- EXECUTION BRANCH 2: All other Cilia types (ciliabuild) ---
+                    
+                    # Enforce file path only for '2Dtemplate'
+                    if centerline_type == '2Dtemplate' and not template_file:
+                        raise ValueError("Template file path is required when line type is '2Dtemplate'.")
+
+                    self.session.logger.info(f"Cilia colors - A: {cilia_a_color}, B: {cilia_b_color}, CP: {cilia_cp_color}")
+                    
+                    doublet_length_diff = float(self.cilia_doublet_length_diff_input.text())
+                    cp_doublet_length_diff = float(self.cilia_cp_doublet_length_diff_input.text())
+                    
+                    # Call the command function and get the returned model
+                    new_model = ciliabuild(
+                        session=self.session,
+                        length=length, 
+                        line=centerline_type,
+                        curve_radius=curve_radius,
+                        sine_frequency=sine_frequency,
+                        sine_amplitude=sine_amplitude,
+                        # template_file is used by 2Dtemplate, but ignored by primarycilia
+                        template_file=template_file, 
+                        tip_length=tip_length,
+                        num_doublets=num_units,
+                        cilia_radius=ring_radius,
+                        draw_central_pair=draw_central_pair,
+                        membrane=should_draw_membrane,
+                        membrane_radius=membrane_radius,
+                        membrane_fraction=membrane_fraction,
+                        doublet_length_diff=doublet_length_diff,
+                        cp_doublet_length_diff=cp_doublet_length_diff,
+                        doublet_a_color=cilia_a_color,
+                        doublet_b_color=cilia_b_color,
+                        cp_color=cilia_cp_color
+                    )
                 
             else:
-                # --- CENTRIOLE (9x3) Logic - Call centriolebuild ---
+                # --- CENTRIOLE Logic - Call centriolebuild ---
                 
                 # Parse centriole colors
                 centriole_a_color = self._parse_color(self.centriole_a_color_input.text())

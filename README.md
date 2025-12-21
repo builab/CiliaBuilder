@@ -57,9 +57,8 @@ TODO
 - Clean up & refactor code (Priority)
 - Primary cilia (Using template first)
 - Reorganize read_2D_csv, read_3D_csv to io
-- Fix Idx_B = 0 for the 1st Z
 - Clean up max_interval
-- Add primary to interface, change template to template2D
+- Change the format of 3D csv to accomodate triplet
 
 DONE
 - Curve and sinusoidal from same direction (Done)
@@ -83,6 +82,10 @@ DONE
 - The merged has a wrinkle 0.9.1
 - Add to interface & cosine drop better 0.9.3
 - Add the cap
+- Add primary to interface, change template to template2D
+- Fix Idx_B = 0 for the 1st Z
+- Gap in primary cilia
+
 
 
 

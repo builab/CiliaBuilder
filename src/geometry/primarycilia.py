@@ -118,48 +118,6 @@ def randomize_list_order(input_list: list) -> list:
     
     return shuffled_list
     
-def process_cilia_csv(df, idx_a_thresholds=IDX_A_THRESHOLDS, idx_b_thresholds=IDX_B_THRESHOLDS):
-    """
-    Process primary cilia CSV file by setting Angle, Idx_A, and Idx_B values.
-    
-    Parameters:
-    input_file (str): Path to input CSV file
-    output_file (str): Path to output CSV file
-    """
-    
-    
-    # Set Angle values for each DoubletNumber
-    # Doublet1 = 90, Doublet2 = 130, Doublet3 = 170, etc. (increment by 40)
-    for doublet_num in range(1, 10):
-        angle_value = 90 + (doublet_num - 1) * 40
-        df.loc[df['DoubletNumber'] == doublet_num, 'Angle'] = angle_value
-    
-    # Zero out Idx_A and Idx_B columns
-    df['Idx_A'] = 0
-    df['Idx_B'] = 0
-    
-    # Find maximum Z value
-    max_z = df['Z'].max()
-    
-    # Process each DoubletNumber
-    for doublet_num in range(1, 10):
-        idx = doublet_num - 1  # Array index (0-8)
-        
-        # Calculate Z thresholds
-        z_threshold_a = idx_a_thresholds[idx] * max_z
-        z_threshold_b = idx_b_thresholds[idx] * max_z
-        
-        # Set Idx_A to 1 for Z from 0 to z_threshold_a
-        mask_a = (df['DoubletNumber'] == doublet_num) & (df['Z'] >= 0) & (df['Z'] <= z_threshold_a)
-        df.loc[mask_a, 'Idx_A'] = 1
-        
-        # Set Idx_B to 1 for Z from 20 to z_threshold_b
-        mask_b = (df['DoubletNumber'] == doublet_num) & (df['Z'] >= 20) & (df['Z'] <= z_threshold_b)
-        df.loc[mask_b, 'Idx_B'] = 1
-        
-    # Remove all rows where both Idx_A=0 and Idx_B=0
-    df_filtered = df[~((df['Idx_A'] == 0) & (df['Idx_B'] == 0))]
-    return df_filtered
 
 
 def scale_cilia_df(df_in: pd.DataFrame, cilia_length: float, interval: float) -> pd.DataFrame:
@@ -193,6 +151,41 @@ def scale_cilia_df(df_in: pd.DataFrame, cilia_length: float, interval: float) ->
     print("Processing complete.")
     return scaled_df
 
+def process_cilia_csv(df_scaled, idx_a_list, idx_b_list):
+    """
+    Applies Idx_A and Idx_B length filtering based on thresholds.
+    """
+    
+    # Step 5: Filter points based on randomized length thresholds
+    df_filtered = []
+    doublet_numbers = sorted(df_scaled['DoubletNumber'].unique())
+    
+    for i, doublet_num in enumerate(doublet_numbers):
+        df_doublet = df_scaled[df_scaled['DoubletNumber'] == doublet_num].copy()
+        
+        # Calculate maximum Z to establish length percentage
+        max_z = df_doublet['Z'].max()
+        
+        # Angle
+        angle_value = 90 + (doublet_num - 1) * 40
+        df_doublet['Angle'] = angle_value
+        
+        # Determine Z-thresholds for Idx_A and Idx_B
+        idx_a_threshold_z = max_z * idx_a_list[i % len(idx_a_list)]
+        idx_b_threshold_z = max_z * idx_b_list[i % len(idx_b_list)]
+        
+        # Apply filtering
+        df_doublet.loc[df_doublet['Z'] < idx_a_threshold_z, 'Idx_A'] = 1
+        df_doublet.loc[df_doublet['Z'] >= idx_a_threshold_z, 'Idx_A'] = 0
+        
+        df_doublet.loc[df_doublet['Z'] < idx_b_threshold_z, 'Idx_B'] = 1
+        df_doublet.loc[df_doublet['Z'] >= idx_b_threshold_z, 'Idx_B'] = 0
+        
+        df_filtered.append(df_doublet)
+
+    return pd.concat(df_filtered, ignore_index=True) if df_filtered else pd.DataFrame(columns=REQUIRED_COLUMNS)
+
+
 def generate_primary_cilia(
 			df_template,
             cilia_length=PRIMARY_CILIA_LENGTH,
@@ -204,12 +197,30 @@ def generate_primary_cilia(
     idx_a_list = randomize_list_order(IDX_A_THRESHOLDS)
     idx_b_list = randomize_list_order(IDX_B_THRESHOLDS)
     
+    # --- FIX: Normalize Z-coordinates of the TEMPLATE to ensure it starts exactly at Z=0 ---
+    if not df_template.empty and 'Z' in df_template.columns:
+        # Find the minimum Z of the template data
+        min_z_template = df_template['Z'].min()
+        
+        if min_z_template != 0:
+            print(f"Normalizing TEMPLATE Z-coordinates by subtracting minimum Z: {min_z_template:.2f}")
+            # Use .copy() to ensure we modify the Z in the current scope without
+            # potential SettingWithCopyWarning if df_template was a slice.
+            df_template = df_template.copy() 
+            df_template['Z'] -= min_z_template
+    # --- END FIX ---
+    
+    # Step 1-4: Scale and Process Doublet Data (which now starts from a Z=0 base)
     df_scaled = scale_cilia_df(df_template, cilia_length, interval)
     df_filtered = process_cilia_csv(df_scaled, idx_a_list, idx_b_list)
+
+    # The normalization is now done on the template, so the output of df_filtered 
+    # should have min(Z) = 0, assuming proportional scaling.
     
-        # Step 7: Add Membrane (DoubletNumber = 0)
+    # Step 7: Add Membrane (DoubletNumber = 0)
     total_membrane_length = membrane_fraction*cilia_length
     n_membrane_points = int(np.ceil(total_membrane_length / interval)) + 1
+    # Ensure membrane Z starts at 0, which is guaranteed by np.linspace(0, ...)
     membrane_z_coords = np.linspace(0, total_membrane_length, n_membrane_points)
     
     membrane_data = []        
@@ -217,12 +228,13 @@ def generate_primary_cilia(
             membrane_data.append([
                 0, 0, 0, z, # DoubletNumber=0, X=0, Y=0, Z
                 1, 1, 0, # Idx_A=1, Idx_B=1, Angle=0
-                0, 0
+                0, 0 # A_Shift=0, B_Shift=0 (unused for membrane)
             ])
             
-    # Create Membrane DataFrame and combine with complete data
-    membrane_df = pd.DataFrame(membrane_data, columns=REQUIRED_COLUMNS)
-    complete_df = pd.concat([df_filtered, membrane_df], ignore_index=True)
-    complete_df = complete_df.sort_values(['DoubletNumber', 'Z']).reset_index(drop=True)
-
-    return complete_df
+    df_membrane = pd.DataFrame(membrane_data, columns=REQUIRED_COLUMNS)
+    
+    # Step 8: Combine all data and return
+    df_final = pd.concat([df_filtered, df_membrane], ignore_index=True)
+    
+    print("Processing complete.")
+    return df_final
