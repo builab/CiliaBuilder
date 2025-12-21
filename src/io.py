@@ -3,10 +3,136 @@
 import pandas as pd
 import numpy as np
 import csv
+import os, sys
 import random # Added: required for random.uniform and random.choice
 from . import default_config # Assuming default_config contains necessary constants
 from .geometry.tip import generate_multiple_tip_lengths_in_memory
 
+from pathlib import Path
+
+
+# Global constants
+REQUIRED_COLUMNS = [
+    "DoubletNumber", "X", "Y", "Z", 
+    "Idx_A", "Idx_B", "Angle", 
+    "A_Shift", "B_Shift"
+]
+
+def load_template_data(template_filename: str):
+    # 1. Get the path to the current Python file (where this function is defined)
+    #    This ensures we know exactly where 'main_script.py' is.
+    script_path = Path(__file__).resolve()
+
+    # 2. Navigate UP one directory (from src/ to CiliaBuilder/)
+    #    and then DOWN into the 'template' directory to find the file.
+    template_file_path = script_path.parent / 'geometry' / template_filename
+    
+    # Alternatively, if the template file is right next to the script:
+    # template_file_path = script_path.parent / template_filename 
+
+    if not template_file_path.exists():
+        raise FileNotFoundError(f"Template file not found at: {template_file_path}")
+    
+    # 3. Load the data using the absolute path
+    df = read_3d_csv(template_file_path)
+    
+    return df
+
+# Example of how to call the function:
+try:
+    df_template = load_template_data('initial_template.csv')
+    print(f"Successfully loaded template from {df_template.shape[0]} rows.")
+except FileNotFoundError as e:
+    print(e)
+    
+
+def read_3d_csv(file_path):
+    """
+    Reads a microtubule geometry CSV file and validates the required columns.
+
+    Args:
+        file_path (str): The path to the input CSV file.
+
+    Returns:
+        pandas.DataFrame: The DataFrame containing the validated data.
+    """
+
+    # --- 1. Check if file exists ---
+    if not os.path.exists(file_path):
+        print(f"Error: File not found at path '{file_path}'", file=sys.stderr)
+        return None
+
+    # --- 2. Read the CSV ---
+    try:
+        df = pd.read_csv(file_path)
+    except pd.errors.EmptyDataError:
+        print(f"Error: The file '{file_path}' is empty.", file=sys.stderr)
+        return None
+    except pd.errors.ParserError:
+        print(f"Error: Could not parse '{file_path}'. Check if it is a valid CSV format.", file=sys.stderr)
+        return None
+    except Exception as e:
+        print(f"An unexpected error occurred while reading the file: {e}", file=sys.stderr)
+        return None
+
+    # --- 3. Validate Columns ---
+    missing_columns = [col for col in REQUIRED_COLUMNS if col not in df.columns]
+
+    if missing_columns:
+        print("\n" + "="*50, file=sys.stderr)
+        print("Error: The CSV file is missing critical columns.", file=sys.stderr)
+        print(f"Missing columns: {missing_columns}", file=sys.stderr)
+        print("="*50 + "\n", file=sys.stderr)
+        return None
+    
+    return df[REQUIRED_COLUMNS] # Return only the validated columns
+    
+def write_3d_csv(df: pd.DataFrame, file_path: str):
+    """
+    Writes a DataFrame to a CSV file, ensuring only the required 3D geometry 
+    columns are included. It prints a warning if the input DataFrame contains 
+    extra, unused columns.
+
+    Args:
+        df (pd.DataFrame): The DataFrame containing the microtubule geometry data.
+        file_path (str): The full path where the CSV file should be saved.
+    """
+    
+    # 1. Check for missing required columns (for robustness)
+    missing_columns = [col for col in REQUIRED_COLUMNS if col not in df.columns]
+    if missing_columns:
+        error_msg = (
+            f"Cannot write CSV: Input DataFrame is missing required columns: "
+            f"{missing_columns}"
+        )
+        # Printing error to stderr
+        print(error_msg, file=sys.stderr)
+        return
+
+    # 2. Check for extra columns and print a warning
+    extra_columns = [col for col in df.columns if col not in REQUIRED_COLUMNS]
+    if extra_columns:
+        # Print warning to stderr so it's clearly visible as a non-fatal error
+        print("="*50, file=sys.stderr)
+        print("WARNING: Extra columns found in the input DataFrame.", file=sys.stderr)
+        print(f"Ignored columns: {extra_columns}", file=sys.stderr)
+        print(f"Only columns: {REQUIRED_COLUMNS} will be written.", file=sys.stderr)
+        print("="*50, file=sys.stderr)
+
+    # 3. Select only the required columns and write to CSV
+    try:
+        # Select columns in the required order
+        df_output = df[REQUIRED_COLUMNS]
+        df_output['X'] = df_output['X'].map('{:.2f}'.format)
+        df_output['Y'] = df_output['Y'].map('{:.2f}'.format)
+        df_output['Z'] = df_output['Z'].map('{:.2f}'.format)
+        df_output.to_csv(file_path, index=False)
+        print(f"\nSuccessfully wrote data to '{file_path}'.")
+        print(f"File includes only the required columns.")
+        
+    except Exception as e:
+        # Printing error to stderr
+        print(f"Error occurred while writing to CSV: {e}", file=sys.stderr)
 
 # --- 1. Constant Definitions (Readability Improvement) ---
 # Use constants from default_config, falling back to assumed values if needed.
@@ -333,6 +459,7 @@ def generate_cilia_with_tip(
 
         
     return complete_df
+
 
 
 # Example usage (uncomment and fix dependency for testing)

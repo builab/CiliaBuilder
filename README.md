@@ -56,6 +56,10 @@ TODO
 - Membrane_fraction=1 cover with a dome? (Bad idea)
 - Clean up & refactor code (Priority)
 - Primary cilia (Using template first)
+- Reorganize read_2D_csv, read_3D_csv to io
+- Fix Idx_B = 0 for the 1st Z
+- Clean up max_interval
+- Add primary to interface, change template to template2D
 
 DONE
 - Curve and sinusoidal from same direction (Done)

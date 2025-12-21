@@ -7,13 +7,16 @@ import numpy as np
 from chimerax.core.models import Surface
 from .draw import draw_tubules, draw_membrane, generate_sphere_surface, generate_capsule_surface
 from .geometry.centerline import generate_cilia_structure, get_doublet_centerline
-from .io import generate_cilia_with_tip
+from .io import generate_cilia_with_tip, read_3d_csv, write_3d_csv, load_template_data
+from .geometry.primarycilia import generate_primary_cilia
 
 # Experimental
 import csv
 
 # Import default value from default_config.py
 from . import default_config
+
+PRIMARYCILIA_TEMPLATE='primarycilia_template.csv'
 
 def ciliabuild(session, 
             length=default_config.CILIA_LENGTH, 
@@ -53,7 +56,7 @@ def ciliabuild(session,
     centerline_type = line 
     
     if centerline_type == 'tip':
-        session.logger.info(f"Generating cilia structure with {centerline_type} geometry...")
+        session.logger.info(f"Generating cilia with tip geometry...")
         
         # Generate tip CSV data
         cilia_data_df = generate_cilia_with_tip(
@@ -70,6 +73,23 @@ def ciliabuild(session,
         )
         # Only turn on writing by default for this
         write_csv = True
+        csv_filename = 'cilia.csv'
+        
+    elif centerline_type == 'primary':
+        session.logger.info(f"Generating primary cilia ...")
+        
+        df_template = load_template_data(PRIMARYCILIA_TEMPLATE)
+        # Generate tip CSV data
+        cilia_data_df = generate_primary_cilia(
+            df_template=df_template,
+            cilia_length=length,
+            membrane_radius=membrane_radius,
+            membrane_fraction=membrane_fraction,
+            interval=default_config.MAX_INTERVAL
+        )
+        # Only turn on writing by default for this
+        write_csv = True
+        csv_filename = 'primarycilia.csv'
         
     else:
         # Generate structure for 'straight', 'curve', 'sinusoidal', 'template'
@@ -192,11 +212,7 @@ def ciliabuild(session,
     
     # Write CSV if requested
     if write_csv:
-        csv_filename = 'cilia.csv'
-        cilia_data_df['X'] = cilia_data_df['X'].map('{:.2f}'.format)
-        cilia_data_df['Y'] = cilia_data_df['Y'].map('{:.2f}'.format)
-        cilia_data_df['Z'] = cilia_data_df['Z'].map('{:.2f}'.format)
-        cilia_data_df.to_csv(csv_filename, index=False)
+        write_3d_csv(cilia_data_df, csv_filename)
         session.logger.info(f"Saved structure to {csv_filename}")
         
     # Update root name based on type
