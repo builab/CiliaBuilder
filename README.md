@@ -53,8 +53,9 @@ TODO
 - Make doublet hollow (low priority) or not viable
 - For ArtiaX build, perhaps presupply a model of doublet & central pair volume at 8-nm repeat (expand curve.py).
 - Remove the io (perhaps not)
+- Membrane_fraction=1 cover with a dome? (Bad idea)
 - Clean up & refactor code (Priority)
-- Primary cilia
+- Primary cilia (Using template first)
 
 DONE
 - Curve and sinusoidal from same direction (Done)
