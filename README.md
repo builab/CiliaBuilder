@@ -58,7 +58,6 @@ TODO
 - Primary cilia (Using template first)
 - Reorganize read_2D_csv, read_3D_csv to io
 - Clean up max_interval
-- Change the format of 3D csv to accomodate triplet
 
 DONE
 - Curve and sinusoidal from same direction (Done)
@@ -85,6 +84,7 @@ DONE
 - Add primary to interface, change template to template2D
 - Fix Idx_B = 0 for the 1st Z
 - Gap in primary cilia
+- Change the format of 3D csv to accomodate triplet
 
 
 

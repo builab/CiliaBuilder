@@ -92,7 +92,7 @@ class CiliaBuilder(ToolInstance):
         general_layout.addWidget(QLabel("Line Type:"), 3, 0)
         self.line_type_combo = QComboBox()
         # Updated Cilia line types: added '3Dtemplate'
-        self.line_type_combo.addItems(['straight', 'curve', 'sinusoidal', 'tip', 'primarycilia', '2Dtemplate', '3Dtemplate'])
+        self.line_type_combo.addItems(['straight', 'curve', 'sinusoidal', 'tip', 'primarycilia', '3Dtemplate', '2Dtemplate'])
         self.line_type_combo.setCurrentText(default_config.CILIA_LINE)
         self.line_type_combo.currentIndexChanged.connect(self._toggle_centerline_inputs)
         general_layout.addWidget(self.line_type_combo, 3, 1)

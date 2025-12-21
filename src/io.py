@@ -45,14 +45,6 @@ def load_template_data(template_filename: str):
     
     return df
 
-# Example of how to call the function:
-try:
-    df_template = load_template_data('initial_template.csv')
-    print(f"Successfully loaded template from {df_template.shape[0]} rows.")
-except FileNotFoundError as e:
-    print(e)
-    
-
 def read_3d_csv(file_path):
     """
     Reads a microtubule geometry CSV file and validates the required columns.
