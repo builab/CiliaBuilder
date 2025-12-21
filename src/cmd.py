@@ -1,37 +1,47 @@
 # vim: set expandtab shiftwidth=4 softtabstop=4:
 
+"""
+ChimeraX command interface for CiliaBuilder.
+
+This module provides high-level commands for generating and visualizing
+cilia and centriole structures in ChimeraX. It handles parameter parsing,
+structure generation, and 3D rendering.
+
+Commands:
+    ciliabuild - Generate cilia structures (9+2 configuration)
+    centriolebuild - Generate centriole structures (9x3 configuration)
+    ciliabuild_from_csv - Load and render structures from CSV templates
+"""
+
 from chimerax.core.commands import CmdDesc, IntArg, FloatArg, StringArg, BoolArg, Color8Arg
 
 import pandas as pd
 import numpy as np
 from chimerax.core.models import Surface
-from .draw import draw_tubules, draw_membrane, generate_sphere_surface, generate_capsule_surface
+from .draw import draw_tubules, draw_membrane, generate_capsule_surface
 from .geometry.centerline import generate_cilia_structure, get_doublet_centerline
-from .io import generate_cilia_with_tip, read_3d_csv, write_3d_csv, load_template_data
+from .io import read_3d_csv, write_3d_csv, load_template_data
 from .geometry.primarycilia import generate_primary_cilia
+from .geometry.tip import generate_cilia_with_tip
 
-# Experimental
-import csv
-
-# Import default value from default_config.py
+# Import default configuration values
 from . import default_config
 
-PRIMARYCILIA_TEMPLATE='primarycilia_template.csv'
-
-# Define core columns for doublets (used internally by some generation functions)
+# Core column names for doublet/triplet data (internal use)
 REQUIRED_COLUMNS = [
     "DoubletNumber", "X", "Y", "Z", 
     "Idx_A", "Idx_B", "Angle", 
     "A_Shift", "B_Shift"
 ]
 
-# New global constant for the final 3D geometry format, including C-tubule data
+# Extended column format including C-tubule data for triplet structures
 EXTENDED_COLUMNS = [
     'DoubletNumber', 'X', 'Y', 'Z', 
     'Idx_A', 'Idx_B', 'Idx_C', 
     'Angle', 
     'A_Shift', 'B_Shift', 'C_Shift'
 ]
+
 
 def ciliabuild(session, 
             length=default_config.CILIA_LENGTH, 
@@ -64,10 +74,7 @@ def ciliabuild(session,
             membrane_color=default_config.CILIA_MEMBRANE_COLOR,
             write_csv=False
             ):
-    """
-    Generate and draw a complete cilia structure with doublet microtubules.
-    """
-    
+
     centerline_type = line 
     csv_filename = 'cilia.csv'
 
@@ -75,7 +82,7 @@ def ciliabuild(session,
     if centerline_type == 'tip':
         session.logger.info(f"Generating cilia with tip geometry...")
         
-        # Generate tip CSV data (assuming it returns REQUIRED_COLUMNS structure)
+        # Generate tip CSV data
         cilia_data_df = generate_cilia_with_tip(
             cilia_length=length,
             cilia_radius=cilia_radius,
@@ -95,8 +102,8 @@ def ciliabuild(session,
     elif centerline_type == 'primarycilia':
         session.logger.info(f"Generating primary cilia ...")
         
-        df_template = load_template_data(PRIMARYCILIA_TEMPLATE)
-        # Generate tip CSV data (assuming it returns REQUIRED_COLUMNS structure)
+        df_template = load_template_data(default_config.PRIMARYCILIA_TEMPLATE)
+        # Generate tip CSV data
         cilia_data_df = generate_primary_cilia(
             df_template=df_template,
             cilia_length=length,
@@ -172,24 +179,20 @@ def ciliabuild(session,
                 idx_a_val = 1
                 idx_b_val = 1 if (idx_b_start <= i < idx_b) else 0
                 
-                # Append 11 columns (Idx_C=0, C_Shift=0 for doublets)
                 all_data.append([
                     doublet_number, x, y, z, 
-                    idx_a_val, idx_b_val, 0, # Idx_C (0 for doublets)
-                    angle, 
-                    -doublet_shift, doublet_shift, 0 # C_Shift (0 for doublets)
+                    idx_a_val, idx_b_val, angle, 
+                    -doublet_shift, doublet_shift
                 ])
         
         # Add central pair data (DoubletNumber = -1)
         if draw_central_pair:
             for point in structure['centerline']:
                 x, y, z = point
-                # Append 11 columns
                 all_data.append([
                     -1, x, y, z, 
-                    1, 1, 0, # Idx_A, Idx_B, Idx_C
-                    0, 
-                    cp_shift, -cp_shift, 0 # A_Shift, B_Shift, C_Shift
+                    1, 1, 0, 
+                    cp_shift, -cp_shift
                 ])
         
         # Add membrane data (DoubletNumber = 0)
@@ -201,26 +204,17 @@ def ciliabuild(session,
             
             for point in membrane_path:
                 x, y, z = point
-                # Append 11 columns
                 all_data.append([
                     0, x, y, z, 
-                    1, 1, 0, # Idx_A, Idx_B, Idx_C
-                    0, 
-                    0, 0, 0 # A_Shift, B_Shift, C_Shift
+                    1, 1, 0, 
+                    0, 0
                 ])
         
         # Create DataFrame
-        cilia_data_df = pd.DataFrame(all_data, columns=EXTENDED_COLUMNS)
-
-    # Ensure all dataframes (including tip/primarycilia branches) conform to EXTENDED_COLUMNS
-    if len(cilia_data_df.columns) < len(EXTENDED_COLUMNS):
-        if 'Idx_C' not in cilia_data_df.columns:
-            cilia_data_df['Idx_C'] = 0
-        if 'C_Shift' not in cilia_data_df.columns:
-            cilia_data_df['C_Shift'] = 0
-        cilia_data_df = cilia_data_df[EXTENDED_COLUMNS]
-
-
+        columns = ['DoubletNumber', 'X', 'Y', 'Z', 'Idx_A', 'Idx_B', 'Angle', 'A_Shift', 'B_Shift']
+        cilia_data_df = pd.DataFrame(all_data, columns=columns)
+        
+    
     # Draw the structure using _ciliabuild_from_df
     cilia_root = _ciliabuild_from_df(
         session=session,
@@ -238,7 +232,6 @@ def ciliabuild(session,
         doublet_b_color=doublet_b_color,
         cp_color=cp_color,
         membrane_color=membrane_color
-        # Note: Triplet parameters are NOT passed here
     )
     
     # Write CSV if requested
@@ -251,8 +244,6 @@ def ciliabuild(session,
         model_id = cilia_root.id_string
         if centerline_type == 'tip':
             cilia_root.name = f"Cilia_Tip {model_id}"
-        elif centerline_type == 'primarycilia':
-            cilia_root.name = f"PrimaryCilia {model_id}"
         else:
             cilia_root.name = f"Cilia_{centerline_type} {model_id}"
         
@@ -293,9 +284,68 @@ def centriolebuild(session,
                 triplet_c_color=default_config.CENTRIOLE_TRIPLET_C_COLOR
                 ):
     """
-    Generate and draw a complete centriole structure with triplet microtubules.
-    
-    ... (docstring truncated for brevity)
+    Generate and draw a complete centriole structure with triplet microtubules 
+    (typically 9 triplets) in a ChimeraX session.
+
+    This function calculates a 3D centerline based on the `line` type, constructs 
+    the triplet geometry DataFrame, applies specific length differences for the 
+    B and C tubules (modeling the distal centriole), and renders the surfaces.
+    The entire structure is shifted so its end aligns with `z_offset_end`.
+
+    Args:
+        session: The current ChimeraX session object.
+        
+        # --- Centerline Parameters ---
+        length (float, optional): Total length of the centriole structure in Å.
+                                  Defaults to `default_config.CENTRIOLE_LENGTH`.
+        line (str, optional): The type of centerline geometry to use ('straight', 'curve', 'sine', 'template').
+                              Defaults to `default_config.CENTRIOLE_LINE`.
+        curve_radius (float, optional): Radius of curvature for the 'curve' line type in Å.
+                                        Defaults to `default_config.CENTRIOLE_CURVE_RADIUS`.
+        sine_frequency (float, optional): Frequency for the 'sine' line type.
+                                          Defaults to `default_config.CENTRIOLE_SINE_FREQUENCY`.
+        sine_amplitude (float, optional): Amplitude for the 'sine' line type in Å.
+                                          Defaults to `default_config.CENTRIOLE_SINE_AMPLITUDE`.
+        template_file (str, optional): Filename for the template CSV if `line` is 'template'.
+                                       Defaults to `default_config.TEMPLATE_FILE`.
+
+        # --- Structure & Alignment Parameters ---
+        num_triplets (int, optional): The number of microtubule triplets (e.g., 9 for a standard centriole).
+                                      Defaults to `default_config.CENTRIOLE_NUM_TRIPLETS`.
+        centriole_radius (float, optional): The radius of the centriole barrel (distance from center to A-tubule centerline).
+                                            Defaults to `default_config.CENTRIOLE_RADIUS`.
+        centriole_angle_offset (float, optional): Angular offset in radians for the entire 9-fold structure.
+                                                  Defaults to `default_config.CILIA_OFFSET_ANGLE - default_config.CENTRIOLE_OFFSET_ANGLE`.
+        z_offset_end (float, optional): The target Z-coordinate where the *end* (most distal point) of the centriole should be placed.
+                                        The entire structure is shifted to meet this value.
+                                        Defaults to `default_config.CENTRIOLE_Z_OFFSET_END`.
+
+        # --- Triplet Geometry Parameters ---
+        triplet_a_radius (float, optional): Radius of the A-tubule in Å.
+                                            Defaults to `default_config.CENTRIOLE_TRIPLET_A_RADIUS`.
+        triplet_b_radius (float, optional): Radius of the B-tubule in Å.
+                                            Defaults to `default_config.CENTRIOLE_TRIPLET_B_RADIUS`.
+        triplet_c_radius (float, optional): Radius of the C-tubule in Å.
+                                            Defaults to `default_config.CENTRIOLE_TRIPLET_C_RADIUS`.
+        triplet_ab_shift (float, optional): The centerline shift magnitude for A and B tubules, defining their overlap.
+                                            Defaults to `default_config.CENTRIOLE_TRIPLET_AB_SHIFT`.
+        triplet_c_shift (float, optional): The centerline shift magnitude for the C tubule.
+                                           Defaults to `default_config.CENTRIOLE_TRIPLET_C_SHIFT`.
+        triplet_b_length_diff (float, optional): The length, in Å, by which the B-tubule is shorter than the A-tubule.
+                                                 Defaults to `default_config.CENTRIOLE_TRIPLET_B_LENGTH_DIFF`.
+        triplet_c_length_diff (float, optional): The length, in Å, by which the C-tubule is shorter than the A-tubule.
+                                                 Defaults to `default_config.CENTRIOLE_TRIPLET_C_LENGTH_DIFF`.
+
+        # --- Color Parameters ---
+        triplet_a_color (tuple, optional): RGBA color tuple for A-tubules.
+                                           Defaults to `default_config.CENTRIOLE_TRIPLET_A_COLOR`.
+        triplet_b_color (tuple, optional): RGBA color tuple for B-tubules.
+                                           Defaults to `default_config.CENTRIOLE_TRIPLET_B_COLOR`.
+        triplet_c_color (tuple, optional): RGBA color tuple for C-tubules.
+                                           Defaults to `default_config.CENTRIOLE_TRIPLET_C_COLOR`.
+
+    Returns:
+        ChimeraX.core.models.Model | None: The root ChimeraX Model object containing the generated surfaces, or None if generation failed.
     """
     
     centerline_type = line
@@ -410,6 +460,222 @@ def centriolebuild(session,
     
     return centriole_root
 
+def ciliabuild_from_csv(session,
+            template_csv='cilia.csv',
+            # Cilia Structure Defaults
+            draw_central_pair=default_config.CILIA_DRAW_CENTRAL_PAIR,
+            membrane=default_config.CILIA_MEMBRANE,
+            membrane_fraction=default_config.CILIA_MEMBRANE_FRACTION,
+            membrane_radius=default_config.CILIA_MEMBRANE_RADIUS,
+            # Doublet Geometry Defaults
+            doublet_a_radius=default_config.CILIA_DOUBLET_A_RADIUS,
+            doublet_b_radius=default_config.CILIA_DOUBLET_B_RADIUS,
+            doublet_shift=default_config.CILIA_DOUBLET_SHIFT,
+            # Central Pair Geometry Defaults
+            cp_radius=default_config.CILIA_CP_RADIUS,
+            cp_shift=default_config.CILIA_CP_SHIFT,
+            # Color parameters
+            doublet_a_color=default_config.CILIA_DOUBLET_A_COLOR,
+            doublet_b_color=default_config.CILIA_DOUBLET_B_COLOR,
+            cp_color=default_config.CILIA_CP_COLOR,
+            membrane_color=default_config.CILIA_MEMBRANE_COLOR,
+            # Triplet Parameters (for centriole CSV files)
+            triplet_c_radius=default_config.CENTRIOLE_TRIPLET_C_RADIUS, 
+            triplet_c_shift=default_config.CENTRIOLE_TRIPLET_C_SHIFT,
+            triplet_c_color=default_config.CENTRIOLE_TRIPLET_C_COLOR
+            ):
+    """
+    Generate and draw a complete cilia/centriole structure from a template CSV file.
+    
+    Loads a pre-computed structure from a CSV file and renders it in 3D. 
+    Automatically detects whether the file contains doublet (cilia) or triplet 
+    (centriole) data based on the presence of Idx_C column values.
+    
+    Parameters
+    ----------
+    session : chimerax.core.session.Session
+        ChimeraX session object for model management and logging
+    template_csv : str, optional
+        Path to CSV file containing structure data (default: 'cilia.csv')
+    draw_central_pair : bool, optional
+        Whether to render central pair microtubules
+    membrane : bool, optional
+        Whether to render ciliary membrane
+    membrane_fraction : float, optional
+        Unused parameter (kept for API compatibility)
+    membrane_radius : float, optional
+        Outer radius of membrane surface (Å)
+    doublet_a_radius : float, optional
+        Outer radius of A-tubules (Å)
+    doublet_b_radius : float, optional
+        Outer radius of B-tubules (Å)
+    doublet_shift : float, optional
+        Lateral displacement of A/B tubules from unit center (Å)
+    cp_radius : float, optional
+        Outer radius of central pair tubules (Å)
+    cp_shift : float, optional
+        Distance of each central tubule from central axis (Å)
+    doublet_a_color : tuple, optional
+        RGBA color for A-tubules (0-255)
+    doublet_b_color : tuple, optional
+        RGBA color for B-tubules (0-255)
+    cp_color : tuple, optional
+        RGBA color for central pair (0-255)
+    membrane_color : tuple, optional
+        RGBA color for membrane (0-255)
+    triplet_c_radius : float, optional
+        Outer radius of C-tubules for triplet structures (Å)
+    triplet_c_shift : float, optional
+        Lateral displacement of C-tubule from unit center (Å)
+    triplet_c_color : tuple, optional
+        RGBA color for C-tubules (0-255)
+    
+    Returns
+    -------
+    chimerax.core.models.Surface
+        Root surface model containing all structure components, or None if failed
+    
+    Notes
+    -----
+    CSV File Format:
+        Required columns: DoubletNumber, X, Y, Z, Idx_A, Idx_B, Angle, 
+                         A_Shift, B_Shift
+        Optional columns: Idx_C, C_Shift (for triplet structures)
+        
+    CSV files generated by ciliabuild() with write_csv=True are compatible
+    with this function.
+    
+    Examples
+    --------
+    Load a cilia structure:
+        ciliabuild_from_csv template_csv 'cilia.csv'
+    
+    Load a centriole structure with custom colors:
+        ciliabuild_from_csv template_csv 'centriole.csv' \\
+                            triplet_a_color 255,100,100,255 \\
+                            triplet_c_color 100,255,100,255
+    """
+    
+    session.logger.info(f"Loading cilia structure from template: {template_csv}")
+    
+    # Load CSV file
+    try:
+        df = pd.read_csv(template_csv)
+    except FileNotFoundError:
+        session.logger.error(f"Template file not found: {template_csv}")
+        return None
+    except Exception as e:
+        session.logger.error(f"Error reading template file: {e}")
+        return None
+    
+    # Render structure using internal function
+    return _ciliabuild_from_df(
+        session=session,
+        df=df,
+        draw_central_pair=draw_central_pair,
+        membrane=membrane,
+        membrane_fraction=membrane_fraction,
+        membrane_radius=membrane_radius,
+        doublet_a_radius=doublet_a_radius,
+        doublet_b_radius=doublet_b_radius,
+        doublet_shift=doublet_shift,
+        cp_radius=cp_radius,
+        cp_shift=cp_shift,
+        doublet_a_color=doublet_a_color,
+        doublet_b_color=doublet_b_color,
+        cp_color=cp_color,
+        membrane_color=membrane_color,
+        triplet_c_radius=triplet_c_radius, 
+        triplet_c_shift=triplet_c_shift,
+        triplet_c_color=triplet_c_color
+    )
+
+
+# ============================================================================
+# CHIMERAX COMMAND DESCRIPTORS
+# ============================================================================
+# Define command-line argument specifications for ChimeraX integration
+
+ciliabuild_desc = CmdDesc(
+    keyword=[
+        ('length', FloatArg),
+        ('line', StringArg),
+        ('curve_radius', FloatArg),
+        ('sine_frequency', FloatArg),
+        ('sine_amplitude', FloatArg),
+        ('template_file', StringArg),
+        ('tip_length', FloatArg),
+        ('num_doublets', IntArg),
+        ('cilia_radius', FloatArg),
+        ('draw_central_pair', BoolArg),
+        ('membrane', BoolArg),
+        ('membrane_fraction', FloatArg),
+        ('membrane_radius', FloatArg),
+        ('doublet_a_radius', FloatArg),
+        ('doublet_b_radius', FloatArg),
+        ('doublet_shift', FloatArg),
+        ('doublet_length_diff', FloatArg),
+        ('cp_doublet_length_diff', FloatArg),
+        ('cp_radius', FloatArg),
+        ('cp_shift', FloatArg),
+        ('doublet_a_color', Color8Arg),
+        ('doublet_b_color', Color8Arg),
+        ('cp_color', Color8Arg),
+        ('membrane_color', Color8Arg),
+        ('write_csv', BoolArg)
+    ],
+    synopsis='Generate complete cilia structure with customizable geometry'
+)
+
+centriolebuild_desc = CmdDesc(
+    keyword=[
+        ('length', FloatArg),
+        ('line', StringArg),
+        ('curve_radius', FloatArg),
+        ('sine_frequency', FloatArg),
+        ('sine_amplitude', FloatArg),
+        ('template_file', StringArg),
+        ('num_triplets', IntArg),
+        ('centriole_radius', FloatArg),
+        ('centriole_angle_offset', FloatArg),
+        ('triplet_a_radius', FloatArg),
+        ('triplet_b_radius', FloatArg),
+        ('triplet_c_radius', FloatArg),
+        ('triplet_ab_shift', FloatArg),
+        ('triplet_c_shift', FloatArg),
+        ('triplet_b_length_diff', FloatArg),
+        ('triplet_c_length_diff', FloatArg),
+        ('z_offset_end', FloatArg),
+        ('triplet_a_color', Color8Arg),
+        ('triplet_b_color', Color8Arg),
+        ('triplet_c_color', Color8Arg)
+    ],
+    synopsis='Generate complete centriole structure with triplet microtubules'
+)
+
+ciliabuild_from_csv_desc = CmdDesc(
+    keyword=[
+        ('template_csv', StringArg),
+        ('draw_central_pair', BoolArg),
+        ('membrane', BoolArg),
+        ('membrane_fraction', FloatArg),
+        ('membrane_radius', FloatArg),
+        ('doublet_a_radius', FloatArg),
+        ('doublet_b_radius', FloatArg),
+        ('doublet_shift', FloatArg),
+        ('cp_radius', FloatArg),
+        ('cp_shift', FloatArg),
+        ('doublet_a_color', Color8Arg),
+        ('doublet_b_color', Color8Arg),
+        ('cp_color', Color8Arg),
+        ('membrane_color', Color8Arg),
+        ('triplet_c_radius', FloatArg), 
+        ('triplet_c_shift', FloatArg),
+        ('triplet_c_color', Color8Arg)
+    ],
+    synopsis='Generate a cilia/centriole structure from a template CSV file'
+)
+
 def _ciliabuild_from_df(session, df,
             # Cilia Structure Defaults
             draw_central_pair=default_config.CILIA_DRAW_CENTRAL_PAIR,
@@ -428,15 +694,134 @@ def _ciliabuild_from_df(session, df,
             doublet_b_color=default_config.CILIA_DOUBLET_B_COLOR,
             cp_color=default_config.CILIA_CP_COLOR,
             membrane_color=default_config.CILIA_MEMBRANE_COLOR,
-            # NEW Triplet Parameters (Optional - presence determines Triplet mode)
+            # Triplet Parameters (optional - presence determines triplet mode)
             triplet_c_radius=None, 
             triplet_c_shift=None,
             triplet_c_color=None
             ):
     """
-    Internal function to generate and draw cilia/centriole structure from a DataFrame.
+    Internal function to render cilia/centriole structures from DataFrame geometry data.
     
-    ... (docstring truncated for brevity)
+    This is the core rendering engine that converts tabular geometric data into 3D 
+    ChimeraX models. It automatically detects structure type (doublet vs triplet) and 
+    creates a hierarchical model with proper grouping. Used by ciliabuild(), 
+    centriolebuild(), and ciliabuild_from_csv().
+    
+    Parameters
+    ----------
+    session : chimerax.core.session.Session
+        ChimeraX session for model management and logging
+    df : pandas.DataFrame
+        Structure geometry data containing centerline points and tubule indices
+        Required columns: DoubletNumber, X, Y, Z, Idx_A, Idx_B, Angle, A_Shift, B_Shift
+        Optional columns: Idx_C, C_Shift (for triplet structures)
+    draw_central_pair : bool, optional
+        Whether to render central pair tubules (DoubletNumber = -1)
+    membrane : bool, optional
+        Whether to render ciliary membrane (DoubletNumber = 0)
+    membrane_fraction : float, optional
+        Legacy parameter, unused (kept for API compatibility)
+    membrane_radius : float, optional
+        Outer radius of membrane surface (Å)
+    doublet_a_radius : float, optional
+        Outer radius of A-tubules (Å)
+    doublet_b_radius : float, optional
+        Outer radius of B-tubules (Å)
+    doublet_shift : float, optional
+        Lateral displacement of A/B tubules from unit centerline (Å)
+    cp_radius : float, optional
+        Outer radius of central pair tubules (Å)
+    cp_shift : float, optional
+        Distance of each central tubule from central axis (Å)
+    doublet_a_color : tuple of int, optional
+        RGBA color for A-tubules (values 0-255)
+    doublet_b_color : tuple of int, optional
+        RGBA color for B-tubules (values 0-255)
+    cp_color : tuple of int, optional
+        RGBA color for central pair tubules (values 0-255)
+    membrane_color : tuple of int, optional
+        RGBA color for membrane surface (values 0-255)
+    triplet_c_radius : float or None, optional
+        Outer radius of C-tubules (Å). If not None, enables triplet rendering mode
+    triplet_c_shift : float or None, optional
+        Lateral displacement of C-tubule from unit centerline (Å)
+    triplet_c_color : tuple of int or None, optional
+        RGBA color for C-tubules (values 0-255)
+    
+    Returns
+    -------
+    chimerax.core.models.Surface or None
+        Root surface model containing all rendered components in a hierarchy, 
+        or None if rendering fails
+    
+    Structure Type Detection
+    ------------------------
+    The function automatically determines rendering mode:
+    - **Doublet mode**: When Idx_C column is absent or sum(Idx_C) == 0
+    - **Triplet mode**: When sum(Idx_C) > 0 in the DataFrame
+    
+    DoubletNumber Encoding
+    ----------------------
+    Special values in the DoubletNumber column:
+        -2 : Cap complex (terminal structure for tip geometry)
+        -1 : Central pair (C1 and C2 singlet tubules)
+         0 : Ciliary membrane
+        >0 : Doublet/Triplet unit number (1-based indexing)
+    
+    Model Hierarchy
+    ---------------
+    Creates a hierarchical structure in ChimeraX::
+    
+        Root Model (Cilia_from_template or Centriole_from_template)
+        ├── DMT1 or TMT1 (Doublet/Triplet Microtubule 1)
+        │   ├── A_tubule (always present)
+        │   ├── B_tubule (if Idx_B > 0)
+        │   └── C_tubule (triplets only, if Idx_C > 0)
+        ├── DMT2 or TMT2
+        │   └── ...
+        ├── ...
+        ├── Central Pair (if draw_central_pair=True and DoubletNumber=-1 exists)
+        │   ├── C1 (first central tubule)
+        │   ├── C2 (second central tubule)
+        │   └── CapComplex (if DoubletNumber=-2 exists)
+        └── Membrane (if membrane=True and DoubletNumber=0 exists)
+    
+    Naming Convention
+    -----------------
+    - DMT = Doublet Microtubule (for cilia)
+    - TMT = Triplet Microtubule (for centrioles)
+    
+    Notes
+    -----
+    - This function does NOT modify the input DataFrame
+    - Tubules are only rendered when sufficient points exist (≥2)
+    - Units with insufficient A-tubule points are skipped with a warning
+    - Color tuples must contain 4 integers (RGBA) with values 0-255
+    - All distance measurements are in Ångströms
+    - The function relies on draw_tubules() and draw_membrane() for actual geometry generation
+    
+    Examples
+    --------
+    Render doublet structure from DataFrame:
+        >>> df = pd.read_csv('cilia_geometry.csv')
+        >>> model = _ciliabuild_from_df(session, df, 
+        ...                              draw_central_pair=True,
+        ...                              membrane=True)
+    
+    Render triplet structure with custom C-tubule parameters:
+        >>> df = pd.read_csv('centriole_geometry.csv')
+        >>> model = _ciliabuild_from_df(session, df,
+        ...                              triplet_c_radius=135.0,
+        ...                              triplet_c_shift=200.0,
+        ...                              triplet_c_color=(179, 179, 255, 255))
+    
+    See Also
+    --------
+    ciliabuild : High-level function for generating cilia structures
+    centriolebuild : High-level function for generating centriole structures
+    ciliabuild_from_csv : Load and render structures from CSV files
+    draw_tubules : Low-level function for rendering individual tubules
+    draw_membrane : Low-level function for rendering membrane surfaces
     """
     
     # Validate DataFrame columns
@@ -444,7 +829,7 @@ def _ciliabuild_from_df(session, df,
         session.logger.error(f"DataFrame must contain columns: {REQUIRED_COLUMNS}")
         return None
         
-# --- GLOBAL STRUCTURE TYPE DETERMINATION ---
+    # --- GLOBAL STRUCTURE TYPE DETERMINATION ---
     has_c_tubule_column = 'Idx_C' in df.columns
     is_triplet_structure = False
     
@@ -623,150 +1008,3 @@ def _ciliabuild_from_df(session, df,
     session.logger.info(f"  Units: {num_units}")
     
     return cilia_root
-
-def ciliabuild_from_csv(session,
-            template_csv='cilia.csv',
-            # Cilia Structure Defaults
-            draw_central_pair=default_config.CILIA_DRAW_CENTRAL_PAIR,
-            membrane=default_config.CILIA_MEMBRANE,
-            membrane_fraction=default_config.CILIA_MEMBRANE_FRACTION,
-            membrane_radius=default_config.CILIA_MEMBRANE_RADIUS,
-            # Doublet Geometry Defaults
-            doublet_a_radius=default_config.CILIA_DOUBLET_A_RADIUS,
-            doublet_b_radius=default_config.CILIA_DOUBLET_B_RADIUS,
-            doublet_shift=default_config.CILIA_DOUBLET_SHIFT,
-            # Central Pair Geometry Defaults
-            cp_radius=default_config.CILIA_CP_RADIUS,
-            cp_shift=default_config.CILIA_CP_SHIFT,
-            # Color parameters
-            doublet_a_color=default_config.CILIA_DOUBLET_A_COLOR,
-            doublet_b_color=default_config.CILIA_DOUBLET_B_COLOR,
-            cp_color=default_config.CILIA_CP_COLOR,
-            membrane_color=default_config.CILIA_MEMBRANE_COLOR,
-            # Triplet Parameters (added for completeness but not used for cilia)
-            triplet_c_radius=default_config.CENTRIOLE_TRIPLET_C_RADIUS, 
-            triplet_c_shift=default_config.CENTRIOLE_TRIPLET_C_SHIFT,
-            triplet_c_color=default_config.CENTRIOLE_TRIPLET_C_COLOR
-            ):
-    """
-    Generate and draw a complete cilia/centriole structure from a template CSV file.
-    
-    """
-    
-    session.logger.info(f"Loading cilia structure from template: {template_csv}")
-    
-    # Read the CSV file
-    try:
-        df = pd.read_csv(template_csv)
-    except FileNotFoundError:
-        session.logger.error(f"Template file not found: {template_csv}")
-        return None
-    except Exception as e:
-        session.logger.error(f"Error reading template file: {e}")
-        return None
-    
-    # Call the internal function with the loaded DataFrame
-    return _ciliabuild_from_df(
-        session=session,
-        df=df,
-        draw_central_pair=draw_central_pair,
-        membrane=membrane,
-        membrane_fraction=membrane_fraction,
-        membrane_radius=membrane_radius,
-        doublet_a_radius=doublet_a_radius,
-        doublet_b_radius=doublet_b_radius,
-        doublet_shift=doublet_shift,
-        cp_radius=cp_radius,
-        cp_shift=cp_shift,
-        doublet_a_color=doublet_a_color,
-        doublet_b_color=doublet_b_color,
-        cp_color=cp_color,
-        membrane_color=membrane_color,
-        # Triplet parameters must be passed as None to signal Cilia mode
-        triplet_c_radius=triplet_c_radius, 
-        triplet_c_shift=triplet_c_shift,
-        triplet_c_color=triplet_c_color
-    )
-
-# Command description for ciliabuild
-ciliabuild_desc = CmdDesc(
-    keyword=[
-        ('length', FloatArg),
-        ('line', StringArg),
-        ('curve_radius', FloatArg),
-        ('sine_frequency', FloatArg),
-        ('sine_amplitude', FloatArg),
-        ('template_file', StringArg),
-        ('tip_length', FloatArg),
-        ('num_doublets', IntArg),
-        ('cilia_radius', FloatArg),
-        ('draw_central_pair', BoolArg),
-        ('membrane', BoolArg),
-        ('membrane_fraction', FloatArg),
-        ('membrane_radius', FloatArg),
-        ('doublet_a_radius', FloatArg),
-        ('doublet_b_radius', FloatArg),
-        ('doublet_shift', FloatArg),
-        ('doublet_length_diff', FloatArg),
-        ('cp_doublet_length_diff', FloatArg),
-        ('cp_radius', FloatArg),
-        ('cp_shift', FloatArg),
-        ('doublet_a_color', Color8Arg),
-        ('doublet_b_color', Color8Arg),
-        ('cp_color', Color8Arg),
-        ('membrane_color', Color8Arg),
-        ('write_csv', BoolArg)
-    ],
-    synopsis='Generate complete cilia structure with customizable geometry'
-)
-
-centriolebuild_desc = CmdDesc(
-    keyword=[
-        ('length', FloatArg),
-        ('line', StringArg),
-        ('curve_radius', FloatArg),
-        ('sine_frequency', FloatArg),
-        ('sine_amplitude', FloatArg),
-        ('template_file', StringArg),
-        ('num_triplets', IntArg),
-        ('centriole_radius', FloatArg),
-        ('centriole_angle_offset', FloatArg),
-        ('triplet_a_radius', FloatArg),
-        ('triplet_b_radius', FloatArg),
-        ('triplet_c_radius', FloatArg),
-        ('triplet_ab_shift', FloatArg),
-        ('triplet_c_shift', FloatArg),
-        ('triplet_b_length_diff', FloatArg),
-        ('triplet_c_length_diff', FloatArg),
-        ('z_offset_end', FloatArg), # Added new keyword argument
-        ('triplet_a_color', Color8Arg),
-        ('triplet_b_color', Color8Arg),
-        ('triplet_c_color', Color8Arg)
-    ],
-    synopsis='Generate complete centriole structure with triplet microtubules'
-)
-
-# Command description for ciliabuild_from_template
-ciliabuild_from_csv_desc = CmdDesc(
-    keyword=[
-        ('template_csv', StringArg),
-        ('draw_central_pair', BoolArg),
-        ('membrane', BoolArg),
-        ('membrane_fraction', FloatArg),
-        ('membrane_radius', FloatArg),
-        ('doublet_a_radius', FloatArg),
-        ('doublet_b_radius', FloatArg),
-        ('doublet_shift', FloatArg),
-        ('cp_radius', FloatArg),
-        ('cp_shift', FloatArg),
-        ('doublet_a_color', Color8Arg),
-        ('doublet_b_color', Color8Arg),
-        ('cp_color', Color8Arg),
-        ('membrane_color', Color8Arg),
-        ('triplet_c_radius', FloatArg), 
-        ('triplet_c_shift', FloatArg),
-        ('triplet_c_color', Color8Arg)
-    ],
-    synopsis='Generate a cilia structure from a template CSV file or in-memory data'
-)
-

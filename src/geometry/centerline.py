@@ -1,11 +1,12 @@
 # geometry/centerline.py
 
 import numpy as np
+from ..io import read_2d_csv
 from scipy.interpolate import UnivariateSpline
 
 # --- Helper Functions for Centerline Types ---
 
-def calculate_radial_position(centerline_points, doublet_index, 
+def _calculate_radial_position(centerline_points, doublet_index, 
                                 total_doublets=9, cilia_radius=875.0):
     """Calculate angle for this doublet (evenly distributed around 360°)"""
     angle = (360.0 / total_doublets) * doublet_index
@@ -85,26 +86,11 @@ def _generate_sinusoidal_centerline(t, length, sine_frequency, sine_amplitude):
     
     return x_center, y_center, z_center
 
-def _generate_template_centerline(t, length, template_file):
-    """Generate points by scaling and interpolating a 2D template file (x, z)."""
+def _generate_template_centerline(t, length, template_data):
+    """Generate points by scaling and interpolating a 2D template file (x, z).
+    template_data is numpy
+    """
     
-    # --- 1. Load and Validate Template Data ---
-    try:
-        # Load with a potential header skip
-        template_data = np.loadtxt(template_file, delimiter=',', skiprows=1)
-    except Exception:
-        # If loading with skiprows=1 fails (e.g., no header), try loading without skipping
-        try:
-            template_data = np.loadtxt(template_file, delimiter=',', skiprows=0)
-        except Exception as e:
-             raise ValueError(f"Could not load template file '{template_file}'. Check format.") from e
-
-    # Validation checks
-    if len(template_data) < 100:
-        raise ValueError(f"Template file must have at least 100 points, got {len(template_data)}")
-    if template_data.ndim == 1 or template_data.shape[1] != 2:
-        raise ValueError(f"Template file must have 2 columns (x, y/z), got {template_data.shape[1]}")
-
     # Extract template coordinates (assuming template is in the XZ plane)
     x_template = template_data[:, 0]
     z_template = template_data[:, 1]
@@ -166,7 +152,8 @@ def generate_centerline_points(length=10000.0, num_points=501,
     elif centerline_type == 'sinusoidal':
         x_center, y_center, z_center = _generate_sinusoidal_centerline(t, length, sine_frequency, sine_amplitude)
     elif centerline_type == '2Dtemplate':
-        x_center, y_center, z_center = _generate_template_centerline(t, length, template_file)
+        template_data = read_2d_csv(template_file)
+        x_center, y_center, z_center = _generate_template_centerline(t, length, template_data)
     else:
         raise ValueError("centerline_type must be 'straight', 'curve', 'sinusoidal', or '2Dtemplate'")
     
@@ -209,7 +196,7 @@ def generate_cilia_structure(
     for i in range(num_doublets):
         # NOTE: calculate_radial_position is assumed to be defined in geometry/base.py
         # and returns angle in DEGREES and shift_distance.
-        angle, shift_dist = calculate_radial_position(
+        angle, shift_dist = _calculate_radial_position(
             centerline, i, num_doublets, cilia_radius
         )
         doublets.append({

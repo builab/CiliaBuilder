@@ -1,5 +1,5 @@
 """
-General function to draw multiple tubules (doublet or triplet)
+General function to draw multiple tubules, membrane and cap
 """
 import numpy as np
 from chimerax.core.models import Surface
@@ -23,10 +23,9 @@ def _calculate_local_frame(tangent):
     return normal, binormal
 
 # --- Helper Function to Generate Sphere Geometry ---
-def create_sphere_geometry(center, radius=10.0, segments_u=32, segments_v=16):
+def _create_sphere_geometry(center, radius=10.0, segments_u=32, segments_v=16):
     """
     Generate vertices and triangles for a sphere using spherical coordinates.
-    ... (Existing code for create_sphere_geometry) ...
     """
     center = np.array(center)
     
@@ -68,7 +67,7 @@ def create_sphere_geometry(center, radius=10.0, segments_u=32, segments_v=16):
 
     return vertices, np.array(triangles, dtype=np.int32)
 
-def create_tube_geometry(path_points, radius=10.0, segments=16, capped=True):
+def _create_tube_geometry(path_points, radius=10.0, segments=16, capped=True):
     """
     Create tube geometry from a path of points.
     ... (Existing code for create_tube_geometry) ...
@@ -153,7 +152,7 @@ def create_tube_geometry(path_points, radius=10.0, segments=16, capped=True):
     return vertices, triangles
 
 # --- NEW HELPER FUNCTION for Combining Geometry ---
-def combine_geometries(geom_list):
+def _combine_geometries(geom_list):
     """Utility to combine multiple (vertices, triangles) tuples."""
     all_vertices = []
     all_triangles = []
@@ -173,7 +172,7 @@ def combine_geometries(geom_list):
 
 
 # --- NEW HELPER FUNCTION for Flat Cap Geometry (Modified to use frame) ---
-def create_disk_geometry(center, radius=10.0, segments=32, frame=None):
+def _create_disk_geometry(center, radius=10.0, segments=32, frame=None):
     """
     Generate vertices and triangles for a flat circular disk, using a frame 
     to ensure alignment with the cylinder.
@@ -268,7 +267,7 @@ def generate_capsule_surface(session, center=(0.0, 0.0, 0.0), capsule_length=25.
     
     # Low Z End Cap (A)
     if flat_end_z == 'low':
-        vertices_a, triangles_a = create_disk_geometry(
+        vertices_a, triangles_a = _create_disk_geometry(
             cap_center_low_z, 
             radius, 
             segments, 
@@ -276,7 +275,7 @@ def generate_capsule_surface(session, center=(0.0, 0.0, 0.0), capsule_length=25.
         )
     else:
         # Rounded sphere cap
-        vertices_a, triangles_a = create_sphere_geometry(
+        vertices_a, triangles_a = _create_sphere_geometry(
             sphere_center_a, radius, segments_u=segments, segments_v=segments_v
         )
         
@@ -284,7 +283,7 @@ def generate_capsule_surface(session, center=(0.0, 0.0, 0.0), capsule_length=25.
     
     # High Z End Cap (B)
     if flat_end_z == 'high':
-        vertices_b, triangles_b = create_disk_geometry(
+        vertices_b, triangles_b = _create_disk_geometry(
             cap_center_high_z, 
             radius, 
             segments, 
@@ -292,7 +291,7 @@ def generate_capsule_surface(session, center=(0.0, 0.0, 0.0), capsule_length=25.
         )
     else:
         # Rounded sphere cap
-        vertices_b, triangles_b = create_sphere_geometry(
+        vertices_b, triangles_b = _create_sphere_geometry(
             sphere_center_b, radius, segments_u=segments, segments_v=segments_v
         )
 
@@ -300,12 +299,12 @@ def generate_capsule_surface(session, center=(0.0, 0.0, 0.0), capsule_length=25.
     
     # Generate Cylinder Body
     if cylinder_centerline_length > 0.0:
-        vertices_cyl, triangles_cyl = create_tube_geometry(path_points, radius, segments, capped=False)
+        vertices_cyl, triangles_cyl = _create_tube_geometry(path_points, radius, segments, capped=False)
         geom_list.append((vertices_cyl, triangles_cyl))
 
     # --- 3. Combine Geometries and Create Surface ---
     
-    vertices, triangles = combine_geometries(geom_list)
+    vertices, triangles = _combine_geometries(geom_list)
     
     if len(vertices) == 0:
         session.logger.warning(f"Skipping surface creation for '{name}': No geometry generated.")
@@ -375,7 +374,7 @@ def generate_tube_surface(session, path_points, radius=10.0, segments=16,
     Generate a tube surface model in ChimeraX.
     """
     # Create geometry
-    vertices, triangles = create_tube_geometry(path_points, radius, segments, capped)
+    vertices, triangles = _create_tube_geometry(path_points, radius, segments, capped)
     
     # If geometry creation failed due to too few points, skip surface creation
     if len(vertices) == 0:
@@ -464,12 +463,6 @@ def shift_path_perpendicular(path_points, shift_distance, angle_degrees):
         shifted_points[i] = path_points[i] + shift_vector
     
     return shifted_points
-
-
-COLOR_A_TUBULE = (255, 100, 100, 255)  # Reddish
-COLOR_B_TUBULE = (100, 100, 255, 255)  # Blueish
-COLOR_C_TUBULE = (100, 255, 100, 255)  # Greenish
-COLOR_CP_TUBULE = (100, 255, 255, 255)  # Cyanish
 
 
 def draw_tubules(session, 
@@ -805,40 +798,3 @@ def create_ring_cap_geometry(center, direction, inner_radius, outer_radius, segm
     triangles = np.array(triangles, dtype=np.int32)
     
     return vertices, triangles
-
-
-
-# Example usage:
-"""
-# Singlet (single microtubule along centerline)
-draw_mt(session, length=1500, radius=125, name="center_mt")
-
-
-# Custom configuration - 3 tubules all same length
-draw_tubules(session, 
-            length=2000,
-            angle=0,
-            radii=[125, 130, 135],
-            shift_distances=[80, 0, -80],  # One side, center, other side
-            length_diffs=[0, 0, 0],  # All same length
-            tubule_names=["MT1", "MT2", "MT3"],
-            colors=[(255,0,0,255), (0,255,0,255), (0,0,255,255)],
-            group_name="custom_triplet")
-
-# Or draw a singlet using draw_tubules with single-element lists
-draw_tubules(session,
-            length=1500,
-            radii=[125],
-            shift_distances=[0],  # No shift = centerline
-            length_diffs=[0],
-            tubule_names=["Center"],
-            colors=[(255,255,0,255)],
-            group_name="singlet")
-
-# The angle defines the perpendicular direction:
-# angle=0° means shift along X-axis
-# angle=90° means shift along Y-axis
-# angle=45° means shift along XY diagonal
-# Positive shift_distance = in the +angle direction
-# Negative shift_distance = in the -angle direction (opposite side)
-"""

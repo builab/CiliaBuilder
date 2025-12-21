@@ -12,5 +12,7 @@ CiliaBuilder/
     ├── draw.py          # Rendering functions
     └── geometry/
         ├── __init__.py
-        ├── centerline.py    # Centerline generation (from curve.py)
-        └── tip.py          # Shared geometry utilities
+        ├── primarycilia_template.csv  # Primary cilia template
+        ├── centerline.py    # Centerline generation
+        ├── primarycilia.py  # Primary cilia generation
+        └── tip.py           # Tip generation
