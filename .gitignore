@@ -6,4 +6,7 @@
 *legacy
 src/*.DS_Store
 src/geometry/*.DS_Store
+src/__pycache__
+example/*.DS_Store
+example/3D_models/.DS_Store
 TODO.md
