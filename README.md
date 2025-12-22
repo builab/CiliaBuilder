@@ -61,12 +61,6 @@ TODO
 - Movie part (low priority)
 - Make doublet hollow (low priority) or not viable
 - For ArtiaX build, perhaps presupply a model of doublet & central pair volume at 8-nm repeat (expand curve.py).
-- Remove the io (perhaps not)
-- Membrane_fraction=1 cover with a dome? (Bad idea)
-- Clean up & refactor code (Priority)
-- Primary cilia (Using template first)
-- Reorganize read_2D_csv, read_3D_csv to io
-- Clean up max_interval
 
 DONE
 - Curve and sinusoidal from same direction (Done)
@@ -90,10 +84,16 @@ DONE
 - The merged has a wrinkle 0.9.1
 - Add to interface & cosine drop better 0.9.3
 - Add the cap
+- CP rung added
 - Add primary to interface, change template to template2D
 - Fix Idx_B = 0 for the 1st Z
 - Gap in primary cilia
 - Change the format of 3D csv to accomodate triplet
+- Reorganize read_2D_csv, read_3D_csv to io
+- Primary cilia (Using template first)
+- Clean up & refactor code (Priority)
+
+
 
 
 

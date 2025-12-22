@@ -1,6 +1,6 @@
 """
 General function to draw multiple tubules, membrane and cap
-"""
+"""          
 import numpy as np
 from chimerax.core.models import Surface
 from chimerax.surface import calculate_vertex_normals
@@ -798,3 +798,126 @@ def create_ring_cap_geometry(center, direction, inner_radius, outer_radius, segm
     triangles = np.array(triangles, dtype=np.int32)
     
     return vertices, triangles
+
+def draw_ladders(session, centerline_points=None, angle=0.0, periodicity=160.0,
+                shift_distances=None, radius=20.0, color=None, segments=16,
+                name="LadderStructure", add_to_session=False):
+    """
+    Generates a ladder-like structure by connecting two shifted centerlines 
+    at regular intervals (rungs), using _create_tube_geometry for each rung.
+
+    The final structure is a single ChimeraX Surface model combining all rungs.
+
+    Args:
+        session: The ChimeraX session object.
+        centerline_points (np.array): Nx3 array of centerline coordinates.
+        angle (float): Rotation angle (in radians) for the shift plane.
+        periodicity (float): Distance (in Å) between rungs along the centerline.
+        shift_distances (list[float]): Must contain at least two values for the two sides of the ladder.
+        radius (float): Radius of the cylindrical rungs.
+        color (tuple[float]): RGBA color tuple (0.0 to 1.0).
+        segments (int): Number of longitudinal segments for the cylinder.
+        name (str): Name for the resulting surface model.
+        add_to_session (bool): Whether to add the model to the ChimeraX session immediately.
+    """
+
+    # --- Input Validation ---
+    if centerline_points is None or len(centerline_points) < 2:
+        session.logger.error("Centerline points are required for draw_ladder.")
+        return None
+
+    if shift_distances is None or len(shift_distances) < 2:
+        session.logger.error("shift_distances must be a list of at least two values.")
+        return None
+    
+    if periodicity <= 0:
+        session.logger.error("Periodicity must be a positive value.")
+        return None
+
+    # 1. Calculate the two shifted centerlines
+    shift1_dist = shift_distances[0]
+    shift2_dist = shift_distances[1]
+
+    # shift_path_perpendicular must be available
+    shift_line_1 = shift_path_perpendicular(centerline_points, shift1_dist, angle)
+    shift_line_2 = shift_path_perpendicular(centerline_points, shift2_dist, angle)
+    
+    # 2. Resample the lines to find rung anchor points based on periodicity
+    
+    # Calculate cumulative distance along the primary centerline
+    path_segments = np.linalg.norm(centerline_points[1:] - centerline_points[:-1], axis=1)
+    cumulative_distance = np.insert(np.cumsum(path_segments), 0, 0.0)
+    
+    # This ensures the first rung starts one full period distance from the base.
+    rung_distances = np.arange(periodicity, cumulative_distance[-1], periodicity)
+    # --------------------------------------------------------------------------
+    
+    if len(rung_distances) == 0:
+        session.logger.info("INFO: No rungs drawn after skipping the first period.")
+        return None
+
+    rung_indices = []
+    for dist in rung_distances:
+        # Find the index of the point whose cumulative distance is closest to 'dist'
+        idx = np.argmin(np.abs(cumulative_distance - dist))
+        
+        # Ensure points are spaced apart to avoid redundant rungs
+        if not rung_indices or idx != rung_indices[-1]:
+            rung_indices.append(idx)
+            
+           
+    # 3. Generate individual rung geometries
+    rung_geometries = []
+
+    for idx in rung_indices:
+        # Get start/end points of the rung
+        # Or skip here
+        start_pt = shift_line_1[idx]
+        end_pt = shift_line_2[idx]
+        
+        # The centerline for one rung is just the two anchor points
+        rung_centerline = np.array([start_pt, end_pt], dtype=np.float32)
+
+        # Use the assumed existing helper function to create tube geometry
+        # Assuming caps are wanted for the short rungs
+        rung_verts, rung_tris = _create_tube_geometry(
+            rung_centerline, 
+            radius, 
+            segments, 
+            capped=True
+        )
+
+        if rung_verts is not None and rung_verts.shape[0] > 0:
+            rung_geometries.append((rung_verts, rung_tris))
+            
+    session.logger.info(f"DEBUG: Successfully generated geometry for {len(rung_geometries)} rungs.")    
+        
+    if not rung_geometries:
+        session.logger.info("No rungs were successfully generated.")
+        return None
+
+    # 4. Combine all rung geometries using the helper function
+    final_vertices, final_triangles = _combine_geometries(rung_geometries)
+
+    session.logger.info(f"DEBUG: Final vertices shape: {final_vertices.shape}")
+    session.logger.info(f"DEBUG: Final triangles shape: {final_triangles.shape}")
+    
+    # 5. Create the ChimeraX Surface model
+    surface = Surface(name, session)
+
+    # Calculate normals for shading
+    final_normals = calculate_vertex_normals(final_vertices, final_triangles)
+    surface.set_geometry(final_vertices, final_normals, final_triangles)
+
+    # Set color (apply to all vertices)
+    if color:
+        # Set color (convert to 0-255 uint8 array)
+        color_array = np.array(color, dtype=np.uint8)
+        surface.color = color_array    
+        
+    if add_to_session:
+        session.models.add([surface])
+
+    session.logger.info(f"Generated ladder structure '{name}' with {len(rung_indices)} rungs.")
+    
+    return surface

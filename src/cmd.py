@@ -18,7 +18,7 @@ from chimerax.core.commands import CmdDesc, IntArg, FloatArg, StringArg, BoolArg
 import pandas as pd
 import numpy as np
 from chimerax.core.models import Surface
-from .draw import draw_tubules, draw_membrane, generate_capsule_surface
+from .draw import draw_tubules, draw_membrane, generate_capsule_surface, draw_ladders
 from .geometry.centerline import generate_cilia_structure, get_doublet_centerline
 from .io import read_3d_csv, write_3d_csv, load_template_data
 from .geometry.primarycilia import generate_primary_cilia
@@ -933,6 +933,19 @@ def _ciliabuild_from_df(session, df,
             colors=[cp_color, cp_color],
             group_name="central_pair"
         )
+        
+        cp_rung_surf = draw_ladders(
+            session=session,
+            centerline_points=cp_centerline,
+            angle=0.0,
+            periodicity=default_config.CILIA_CP_RUNG_PERIODICITY,
+            shift_distances=[cp_shift1, cp_shift2],
+            radius=default_config.CILIA_CP_BRIDGE_RADIUS, 
+            color=cp_color,
+            name="LadderStructure", 
+        )
+        
+        cp_surfs.append(cp_rung_surf)
         
         if len(cap_data) > 0:
             cap_surf = generate_capsule_surface(session, tuple(cap_data[['X', 'Y', 'Z']].iloc[0]), capsule_length=default_config.TIP_CAP_LENGTH,

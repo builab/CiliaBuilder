@@ -70,10 +70,11 @@ CILIA_CP_DOUBLET_LENGTH_DIFF = 300.0  # Central pair extends this much beyond do
 # --- Central Pair Geometry ---
 CILIA_CP_RADIUS = 125.0  # Outer radius of C1 and C2 singlet tubules
 CILIA_CP_SHIFT = 160.0  # Distance of each central tubule from the central axis
+CILIA_CP_BRIDGE_RADIUS = 30 # Radius of rung linking C1 & C2
+CILIA_CP_RUNG_PERIODICITY = 320 # Run periodicity 160 or 320
 
 # --- Tip Geometry ---
 # Parameters for generating tapered cilia tips
-TIP_TRANSITION_RADIUS = 0.75 * CILIA_RADIUS  # Radius at start of taper (656.25 Å)
 TIP_FINAL_RADIUS = CILIA_CP_RADIUS + CILIA_CP_SHIFT + 120  # Final tip radius (405 Å)
 TIP_TRANSITION_LENGTH = 1500  # Length over which taper occurs
 TIP_INITIAL_LENGTH = 300  # Straight section before taper begins
