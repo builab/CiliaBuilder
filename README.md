@@ -2,7 +2,7 @@
 
 [![DOI](https://zenodo.org/badge/1115546661.svg)](https://zenodo.org/badge/latestdoi/1115546661)
 
-ChimeraX Tool to build 3D model of cilia and centriole.
+ChimeraX Tool to build 3D models of cilia and centriole.
 
 ## Installation
 
@@ -15,7 +15,7 @@ git clone https://github.com/builab/CiliaBuilder.git
 
 If you download, then unzip
 
-Open ChimeraX
+Open ChimeraX (Tested to be compatible with ChimeraX 1.7 and up to 1.10 but not tested with earlier or later version)
 ```bash
 devel install [path_to_CiliaBuilder_folder]
 ```
