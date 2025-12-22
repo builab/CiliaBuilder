@@ -21,11 +21,19 @@ devel install [path_to_CiliaBuilder_folder]
 ```
 
 ## Interface usage
-Tools > High-order structure > Cilia Builder
+Open Tools > High-order structure > Cilia Builder
 
-Then enjoy
+## UI
 
-## Commandline usage (NOT RECOMMENDED)
+[![Screenshot](example/CiliaBuilder_screenshot.png)](example/CiliaBuilder_screenshot.png)
+
+
+###Video Tutorial
+To Come
+
+
+
+## Commandline usage
 
 ### Simple straight cilia
 ciliabuild length 10000
