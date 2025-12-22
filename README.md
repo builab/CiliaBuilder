@@ -31,19 +31,19 @@ Then enjoy
 ciliabuild length 10000
 
 ### Curved cilia
-ciliabuild length 10000 line curve curve_radius 10000
+ciliabuild length 10000 type curve curve_radius 10000
 
 ### Sinusoidal cilia
-ciliabuild length 15000 line sinusoidal sine_frequency 1 sine_amplitude 1000
+ciliabuild length 15000 type sinusoidal sine_frequency 1 sine_amplitude 1000
 
 ### Cilia with tip
-ciliabuild length 10000 tip_length 4000 line tip
+ciliabuild length 10000 type tip tip_length 4000 
 
 ### Primary cilia
-ciliabuild length 10000 line primarycilia
+ciliabuild length 10000 type primarycilia
 
 ### Using 2D template file
-ciliabuild length 10000 line 2Dtemplate template_csv template.csv
+ciliabuild length 10000 type 2Dtemplate template_csv
 
 ### Custom number of doublets
 ciliabuild length 5000 num_doublets 12 cilia_radius 1000
@@ -53,7 +53,7 @@ ciliabuild length 5000 num_doublets 12 cilia_radius 1000
 centriolebuild length 3000
 
 ### Centriole with custom angle offset to match with cilia
-centriolebuild length 5000 centriole_angle_offset 0
+centriolebuild length 2000 centriole_angle_offset 0
 
 ### Custom triplet configuration
 centriolebuild length 5000 num_triplets 12 centriole_radius 1200
