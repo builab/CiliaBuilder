@@ -5,10 +5,11 @@ CiliaBuilder/
 ├── structure.md		# Source script
 ├── example/
 └── src/
-    ├── __init__.py
-    ├── default_config.py           # ChimeraX commands (high-level interface)
-    ├── cmd.py           # ChimeraX commands (high-level interface)
-    ├── io.py            # io but might killed in the future as we 
+    ├── __init__.py      # Export function
+    ├── default_config.py           # Default values (to be modified before installing)
+    ├── cmd.py           # ChimeraX commands
+    ├── tool.py          # ChimeraX UI
+    ├── io.py            # io function
     ├── draw.py          # Rendering functions
     └── geometry/
         ├── __init__.py
