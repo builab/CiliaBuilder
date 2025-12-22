@@ -15,7 +15,7 @@ git clone https://github.com/builab/CiliaBuilder.git
 
 If you download, then unzip
 
-Open ChimeraX and type this in ChimeraX commandline (Tested to be compatible with ChimeraX 1.7 and up to 1.10 but not tested with earlier or later version)
+Open ChimeraX and type this in #ChimeraX commandline# (Tested to be compatible with ChimeraX 1.7 and up to 1.10 but not tested with earlier or later version)
 ```bash
 devel install [path_to_CiliaBuilder_folder]
 ```
