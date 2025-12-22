@@ -1,5 +1,8 @@
-# ChimeraX CiliaBuilder
-Only testing internally now. Probably release in 6 months with a lot of more function planned.
+# ChimeraX CiliaBuilder 
+
+[![DOI](https://zenodo.org/badge/1115546661.svg)](https://zenodo.org/badge/latestdoi/1115546661)
+
+ChimeraX Tool to build 3D model of cilia and centriole.
 
 ## Installation
 
@@ -90,9 +93,6 @@ DONE
 - Reorganize read_2D_csv, read_3D_csv to io
 - Primary cilia (Using template first)
 - Clean up & refactor code (Priority)
-
-GUIDELINE
-- Save as glb
 
 
 
