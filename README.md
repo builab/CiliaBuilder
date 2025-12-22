@@ -57,9 +57,7 @@ centriolebuild length 5000 num_triplets 12 centriole_radius 1200
 
 
 TODO
-- Pre-calculated tip for Tetrahymena & Primary cilia. (Priority)
 - Movie part (low priority)
-- Make doublet hollow (low priority) or not viable
 - For ArtiaX build, perhaps presupply a model of doublet & central pair volume at 8-nm repeat (expand curve.py).
 
 DONE
@@ -92,12 +90,6 @@ DONE
 - Reorganize read_2D_csv, read_3D_csv to io
 - Primary cilia (Using template first)
 - Clean up & refactor code (Priority)
-
-
-
-
-
-
 
 GUIDELINE
 - Save as glb
