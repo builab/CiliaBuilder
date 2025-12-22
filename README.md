@@ -25,23 +25,32 @@ Then enjoy
 ## Commandline usage (NOT RECOMMENDED)
 
 ### Simple straight cilia
-ciliabuild length 15000 cilia_radius 875
+ciliabuild length 10000
 
 ### Curved cilia
-ciliabuild length 15000 line curve curve_radius 10000
+ciliabuild length 10000 line curve curve_radius 10000
 
 ### Sinusoidal cilia
-ciliabuild length 25000 line sinusoidal sine_frequency 1 sine_amplitude 2000
+ciliabuild length 15000 line sinusoidal sine_frequency 1 sine_amplitude 1000
+
+### Cilia with tip
+ciliabuild length 10000 tip_length 4000 line tip
+
+### Primary cilia
+ciliabuild length 10000 line primarycilia
+
+### Using 2D template file
+ciliabuild length 10000 line 2Dtemplate template_csv template.csv
 
 ### Custom number of doublets
 ciliabuild length 5000 num_doublets 12 cilia_radius 1000
 
 
-### Basic centriole
-centriolebuild length 5000
+### Basic centriole (offset 30 degree)
+centriolebuild length 3000
 
-### Centriole with custom angle offset
-centriolebuild length 5000 centriole_angle_offset 45
+### Centriole with custom angle offset to match with cilia
+centriolebuild length 5000 centriole_angle_offset 0
 
 ### Custom triplet configuration
 centriolebuild length 5000 num_triplets 12 centriole_radius 1200

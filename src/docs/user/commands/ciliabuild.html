@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>ciliabuild Command</title>
+<link rel="stylesheet" type="text/css" href="../userdocs.css" /></head>
+<body>
+
+<h1 id="ciliabuild">ciliabuild</h1>
+<p>
+    Generate a complete cilia structure (typically 9+2 axoneme) as a ChimeraX model.
+    The structure includes microtubule doublets, an optional central pair, an optional tip complex, and an optional membrane.
+</p>
+<p></p>
+
+<h2>Usage</h2>
+<pre><strong>ciliabuild</strong> [<a href="#cilia_centerline">Centerline_Options</a>] [<a href="#cilia_structure">Structure_Options</a>] [<a href="#cilia_geometry">Geometry_Options</a>] [<a href="#cilia_tip">Tip_Options</a>] [<a href="#cilia_membrane">Membrane_Options</a>]</pre>
+<br>
+<h2>Examples</h2>
+
+<p>
+    <strong>Note:</strong> All length and radius parameters use Ångströms (Å).
+</p>
+
+<h3>Simple straight cilia (9+2)</h3>
+<pre>ciliabuild length 10000</pre>
+
+<h3>Curved cilia</h3>
+<pre>ciliabuild length 10000 type curve curve_radius 10000</pre>
+
+<h3>Sinusoidal cilia</h3>
+<pre>ciliabuild length 15000 type sine sine_frequency 1 sine_amplitude 1000</pre>
+
+<h3>Cilia with defined tip length and random termination</h3>
+<pre>ciliabuild length 10000 type tip tip_length 4000</pre>
+<dl>
+<dd>For this option, the tip is generated randomly. Therefore, a csv file ciliatip.csv is generated containing information to replicate the exact model generated using <tt>ciliabuild_from_csv</tt><dd>
+</dl>
+
+<h3>Primary cilia (9+0)</h3>
+<pre>ciliabuild length 10000 type primarycilia draw_central_pair false</pre>
+<dl>
+<dd>For this option, the primary cilia is generated randomly. Therefore, a csv file primary.csv is generated containing information to replicate the exact model generated using <tt>ciliabuild_from_csv</tt><dd>
+</dl>
+
+<h3>Using 2D template file</h3>
+<pre>ciliabuild length 10000 type template template_file template.csv</pre>
+
+<h3>Custom number of doublets (e.g., 12+2)</h3>
+<pre>ciliabuild length 5000 num_doublets 12 cilia_radius 1000</pre>
+<br>
+<h2>Options</h2>
+
+<h3 id="cilia_centerline">Centerline Options</h3>
+<dl>
+    <dt><tt>length</tt> <var>float</var></dt>
+    <dd>Total length of the cilium/flagellum in Ångströms. (default: 10000.0)</dd>
+
+    <dt><tt>type</tt> <var>string</var></dt>
+    <dd>The type of centerline geometry: <code>straight</code>, <code>curve</code> (circular arc), <code>sine</code> (sinusoidal wave), <code>primarycilia</code>, or <code>template</code> (load from custom CSV). (default: straight)</dd>
+
+    <dt><tt>curve_radius</tt> <var>float</var></dt>
+    <dd>Radius of curvature (in Å) used for the <code>curve</code> line type. (default: 10000.0)</dd>
+
+    <dt><tt>sine_frequency</tt> <var>float</var></dt>
+    <dd>How many times of a sine cycle for the <code>sinusoidal</code> line type. (default: 1.0)</dd>
+
+    <dt><tt>sine_amplitude</tt> <var>float</var></dt>
+    <dd>Amplitude (in Å) for the <code>sine</code> line type. (default: 5000.0)</dd>
+    
+    <dt><tt>template_file</tt> <var>string</var></dt>
+    <dd>Filename for the 2D centerline template CSV if <code>line</code> is <code>template</code>. (default: 'template.csv')</dd>
+    
+</dl>
+
+<h3 id="cilia_structure">Axoneme Structure Options</h3>
+<dl>
+    <dt><tt>num_doublets</tt> <var>integer</var></dt>
+    <dd>Number of doublet microtubules. (default: 9)</dd>
+    
+    <dt><tt>cilia_radius</tt> <var>float</var></dt>
+    <dd>Radius of the axoneme barrel (distance from the center axis to the doublet A-tubule centerline) in Å. (default: 875.0)</dd>
+    
+    <dt><tt>draw_central_pair</tt> <var>boolean</var></dt>
+    <dd>If <code>True</code>, draws the two central singlet microtubules (the '+2'). (default: True)</dd>
+    
+</dl>
+
+<h3 id="cilia_geometry">Microtubule Geometry & Color Options</h3>
+<dl>
+    <dt><tt>doublet_a_radius</tt> <var>float</var></dt>
+    <dd>Radius of the A-tubule in Å. (default: 125.0)</dd>
+    
+    <dt><tt>doublet_b_radius</tt> <var>float</var></dt>
+    <dd>Radius of the B-tubule in Å. (default: 135.0)</dd>
+    
+    <dt><tt>doublet_shift</tt> <var>float</var></dt>
+    <dd>The centerline shift magnitude (in Å) defining the A/B overlap. (default: 70.0)</dd>
+
+    <dt><tt>doublet_a_color</tt> <var>color</var></dt>
+    <dd>RGBA color for the A-tubules. (default: #6464FF)</dd>
+    
+    <dt><tt>doublet_b_color</tt> <var>color</var></dt>
+    <dd>RGBA color for the B-tubules. (default: #6464FF)</dd>
+    
+    <dt><tt>cp_radius</tt> <var>float</var></dt>
+    <dd>Radius of the Central Pair (CP) singlet microtubules in Å. (default: 125.0)</dd>
+    
+    <dt><tt>cp_shift</tt> <var>float</var></dt>
+    <dd>The centerline shift magnitude (in Å) separating the two central pair singlets. (default: 160.0)</dd>
+    
+    <dt><tt>cp_color</tt> <var>color</var></dt>
+    <dd>RGBA color for the Central Pair microtubules. (default: #FFFF64)</dd>
+    
+</dl>
+
+<h3 id="cilia_tip">Tip Options</h3>
+<dl>
+    <dt><tt>tip_length</tt> <var>float</var></dt>
+    <dd>Length of the distal tip region in Å where doublets may terminate. (default: 2000.0)</dd>    
+</dl>
+
+<h3 id="cilia_membrane">Membrane Options</h3>
+<dl>
+    <dt><tt>membrane</tt> <var>boolean</var></dt>
+    <dd>If <code>True</code>, draws a semi-transparent cylindrical membrane surface. (default: True)</dd>
+
+    <dt><tt>membrane_radius</tt> <var>float</var></dt>
+    <dd>Radius of the membrane cylinder in Å. (default: 1100.0)</dd>
+    
+    <dt><tt>membrane_fraction</tt> <var>float</var></dt>
+    <dd>Fraction of the total length that the membrane covers. (default: 0.7)</dd>
+
+    <dt><tt>membrane_color</tt> <var>color</var></dt>
+    <dd>RGBA color for the membrane (default: #666666)</dd>
+</dl>
+
+
+<hr>
+CiliaBuilder 1.0.0 by Builab@McGill, Jan 2026
+</body>
+</html>

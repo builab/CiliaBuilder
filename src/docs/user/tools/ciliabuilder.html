@@ -1,0 +1,42 @@
+<html>
+    <head>
+    <link rel="stylesheet" type="text/css" href="../userdocs.css">
+    <title>CiliaBuilder Tool</title>
+</head>
+<body> 
+    <a name="top"></a> 
+    <a href="../ciliabuilder_index.html"> <img src="../CiliaBuilder-icon.png"
+        alt="CiliaBuilder docs icon" class="clRight" title="User Guide Index" width="150px"></a>
+    <h3><a href="../ciliabuilder_index.html#tools">Tool</a>: CiliaBuilder</h3>
+
+    <p> The <b>CiliaBuilder Tool</b> is a ChimeraX package used to generate parameterized and custom 3D models of microtubule-based structures, primarily cilia  and centrioles. It provides high-level commands for quick model creation and a low-level command for detailed geometry import.
+    </p>
+    
+
+    <p>The primary functions of the tool are exposed through three ChimeraX commands:</p>
+
+    <ul>
+        <li>
+            <b><a href="ciliabuild.html">ciliabuild Command</a>:</b>
+            <p>
+                Used to generate a complete cilia or flagellum structure (typically 9+2 axoneme). This command allows the user to specify the centerline (straight, curved, sinusoidal, or template), overall length, microtubule radii, central pair presence, tip termination style, and membrane parameters.
+            </p>
+        </li>
+        <li>
+            <b><a href="centriolebuild.html">centriolebuild Command</a>:</b>
+            <p>
+                Used to generate a complete centriole structure with microtubule triplets (typically 9x3 configuration). It automatically calculates the characteristic distal termination of the B- and C-tubules and allows customization of length, radius, and overall angular offset.
+            </p>
+        </li>
+        <li>
+            <b><a href="ciliabuild_from_csv.html">ciliabuild_from_csv Command</a>:</b>
+            <p>
+                Provides maximum flexibility by loading detailed 3D microtubule geometry data from a custom CSV file. This allows users to import complex, pre-calculated coordinates and termination flags for all components (doublets, central pair, membrane, cap) of any microtubule-based structure.
+            </p>
+        </li>
+    </ul>
+
+    <hr>
+CiliaBuilder 1.0.0 by Builab@McGill, Jan 2026
+</body>
+</html>

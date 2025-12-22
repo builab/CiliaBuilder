@@ -1,4 +1,8 @@
+# geometry/tip.py
+
 import numpy as np
+import pandas as pd
+import random
 from .. import default_config
 
 # --- 1. Constant Definitions (Readability Improvement) ---
@@ -131,10 +135,6 @@ def generate_multiple_tip_lengths_in_memory(
 
     return all_curves_data
     
-
-
-
-
 # --- 2. Helper Function for CSV Row Generation ---
 def _generate_doublet_rows(curve_data, doublet_number, z_max_idx_b, doublet_shift, num_doublets=None):
     """

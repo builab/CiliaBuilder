@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>centriolebuild Command</title>
+<link rel="stylesheet" type="text/css" href="../userdocs.css" /></head>
+
+<body>
+
+<h1 id="centriolebuild">centriolebuild</h1>
+<p>
+    Generate a complete centriole structure with triplet microtubules (typically 9x3 configuration) as a ChimeraX model.
+    Centrioles are rendered with specific length differences for the B- and C-tubules to model the distal end fade-out.
+</p>
+<p>
+
+</p>
+
+<h2>Usage</h2>
+<pre><strong>centriolebuild</strong> [<a href="#centriole_centerline">Centerline_Options</a>] [<a href="#centriole_structure">Structure_Options</a>] [<a href="#centriole_geometry">Triplet_Geometry_Options</a>]</pre>
+
+<h2>Examples</h2>
+
+<p>
+    <strong>Note:</strong> All length and radius parameters use Ångströms (Å).
+</p>
+
+<h3>Basic straight centriole (9x3)</h3>
+<pre>centriolebuild length 3000</pre>
+
+<h3>Curved centriole</h3>
+<pre>centriolebuild length 5000 type curve curve_radius 8000</pre>
+
+<h3>Centriole with custom angle offset (e.g., centriole_angle_offset = 0 to match an aligned cilia)</h3>
+<pre>centriolebuild length 5000 centriole_angle_offset 0</pre>
+
+<h3>Centriole with custom termination lengths</h3>
+<pre>centriolebuild length 4000 triplet_b_length_diff 500 triplet_c_length_diff 1000</pre>
+
+<h3>Custom number of triplets and radius (e.g., 12x3)</h3>
+<pre>centriolebuild length 5000 num_triplets 12 centriole_radius 1200</pre>
+
+<h2>Options</h2>
+
+<h3 id="centriole_centerline">Centerline Options</h3>
+<dl>
+    <dt><tt>length</tt> <var>float</var></dt>
+    <dd>Total length of the centriole in Ångströms. (default: 4000.0)</dd>
+    
+    <dt><tt>type</tt> <var>string</var></dt>
+    <dd>The type of centerline geometry: <code>straight</code>, <code>curve</code>, or <code>sine</code>. (default: straight)</dd>
+
+    <dt><tt>curve_radius</tt> <var>float</var></dt>
+    <dd>Radius of curvature (in Å) used for the <code>curve</code> line type. (default: 10000.0)</dd>
+
+    <dt><tt>sine_frequency</tt> <var>float</var></dt>
+    <dd>How many times of a sine cycle for the <code>sinusoidal</code> line type. (default: 1.0)</dd>
+
+    <dt><tt>sine_amplitude</tt> <var>float</var></dt>
+    <dd>Amplitude (in Å) for the <code>sine</code> line type. (default: 2000.0)</dd>
+    
+    <dt><tt>template_file</tt> <var>string</var></dt>
+    <dd>Filename for the 2D centerline template CSV if <code>line</code> is <code>template</code>. (default: 'template.csv')</dd>
+    
+    <dt><tt>z_offset_end</tt> <var>float</var></dt>
+    <dd>The target Z-coordinate where the *end* (most distal point) of the centriole should be placed. The entire structure is shifted to meet this value. (default: 0.0)</dd>
+</dl>
+
+<h3 id="centriole_structure">Centriole Structure Options</h3>
+<dl>
+    <dt><tt>num_triplets</tt> <var>integer</var></dt>
+    <dd>Number of microtubule triplets (e.g., 9). (default: 9)</dd>
+    
+    <dt><tt>centriole_radius</tt> <var>float</var></dt>
+    <dd>Radius of the centriole barrel (distance from center to A-tubule centerline) in Å. (default: 875.0)</dd>
+    
+    <dt><tt>centriole_angle_offset</tt> <var>float</var></dt>
+    <dd>Angular offset (in degrees) for the entire 9-fold structure. (default: 30.0)</dd>
+</dl>
+
+<h3 id="centriole_geometry">Triplet Geometry & Color Options</h3>
+<dl>
+    <dt><tt>triplet_a_radius</tt> <var>float</var></dt>
+    <dd>Radius of the A-tubule in Å. (default: 125.0)</dd>
+    
+    <dt><tt>triplet_b_radius</var> <var>float</var></dt>
+    <dd>Radius of the B-tubule in Å. (default: 135.0)</dd>
+
+    <dt><tt>triplet_c_radius</tt> <var>float</var></dt>
+    <dd>Radius of the C-tubule in Å. (default: 135.0)</dd>
+    
+    <dt><tt>triplet_ab_shift</tt> <var>float</var></dt>
+    <dd>The centerline shift magnitude (in Å) from the center of A & B. (default: 70.0)</dd>
+    
+    <dt><tt>triplet_c_shift</tt> <var>float</var></dt>
+    <dd>The centerline shift magnitude (in Å) applied to the C-tubule relative to the center. (default: 200.0)</dd>
+    
+    <dt><tt>triplet_b_length_diff</tt> <var>float</var></dt>
+    <dd>The length (in Å) by which the B-tubule is shorter than the A-tubule (for distal termination). (default: 20.0)</dd>
+    
+    <dt><tt>triplet_c_length_diff</tt> <var>float</var></dt>
+    <dd>The length (in Å) by which the C-tubule is shorter than the A-tubule (for distal termination). (default: 40.0)</dd>
+    
+    <dt><tt>triplet_a_color</tt> <var>color</var></dt>
+    <dd>RGBA color for A-tubules. (default: ##6464FF)</dd>
+    
+    <dt><tt>triplet_b_color</tt> <var>color</var></dt>
+    <dd>RGBA color for B-tubules. (default: ##6464FF)</dd>
+    
+    <dt><tt>triplet_c_color</tt> <var>color</var></dt>
+    <dd>RGBA color for C-tubules. (default: #B3B3FF)</dd>
+</dl>
+
+
+<hr>
+CiliaBuilder 1.0.0 by Builab@McGill, Jan 2026
+</body>
+</html>

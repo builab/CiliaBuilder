@@ -461,14 +461,11 @@ class CiliaBuilder(ToolInstance):
                         template_csv=template_file,
                         draw_central_pair=draw_central_pair,
                         membrane=should_draw_membrane,
-                        membrane_fraction=membrane_fraction,
                         membrane_radius=membrane_radius,
                         # Pass geometry defaults (not exposed in UI)
                         doublet_a_radius=default_config.CILIA_DOUBLET_A_RADIUS, 
                         doublet_b_radius=default_config.CILIA_DOUBLET_B_RADIUS,
-                        doublet_shift=default_config.CILIA_DOUBLET_SHIFT,
                         cp_radius=default_config.CILIA_CP_RADIUS,
-                        cp_shift=default_config.CILIA_CP_SHIFT,
                         # Pass colors
                         doublet_a_color=cilia_a_color,
                         doublet_b_color=cilia_b_color,
@@ -492,7 +489,7 @@ class CiliaBuilder(ToolInstance):
                     new_model = ciliabuild(
                         session=self.session,
                         length=length, 
-                        line=centerline_type,
+                        type=centerline_type,
                         curve_radius=curve_radius,
                         sine_frequency=sine_frequency,
                         sine_amplitude=sine_amplitude,
@@ -531,7 +528,7 @@ class CiliaBuilder(ToolInstance):
                 new_model = centriolebuild(
                     session=self.session,
                     length=length,
-                    line=centerline_type,
+                    type=centerline_type,
                     curve_radius=curve_radius,
                     sine_frequency=sine_frequency,
                     sine_amplitude=sine_amplitude,

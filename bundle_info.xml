@@ -36,7 +36,12 @@ will be displayed without the ChimeraX- prefix.
 
   <!-- Non-Python files that are part of package -->
   <DataFiles>
-    <DataFile>docs/user/tools/CiliaBuilder.html</DataFile>
+    <DataFile>docs/user/commands/ciliabuild.html</DataFile>
+    <DataFile>docs/user/commands/centriolebuild.html</DataFile>
+    <DataFile>docs/user/commands/ciliabuild_from_csv.html</DataFile>
+    <DataFile>docs/user/general/ciliabuilder_tutorial.html</DataFile>
+    <DataFile>docs/user/tools/ciliabuilder.html</DataFile>
+    <DataFile>docs/user/CiliaBuilder-icon.png</DataFile>
     <DataFile>geometry/primarycilia_template.csv</DataFile>
     <DataFile>geometry/primarycilia_good.csv</DataFile>
 

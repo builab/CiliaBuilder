@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>ciliabuild_from_csv Command</title>
+<link rel="stylesheet" type="text/css" href="chimerax.css">
+</head>
+<body>
+
+<h1 id="ciliabuild_from_csv">ciliabuild_from_csv</h1>
+<p>
+    Loads detailed 3D microtubule geometry data from a CSV file and generates the corresponding 
+    cilia, or centriole structure as a ChimeraX model. This command provides reproducibility when
+    you generate a model before and want to load exactly the same one.
+</p>
+<p></p>
+
+<h2>Usage</h2>
+<pre><strong>ciliabuild_from_csv</strong> <a href="#csv_options">Options</a></pre>
+
+<h2>Examples</h2>
+
+<h3>Load a primary cilia csv (9+0)</h3>
+<pre>ciliabuild_from_csv template_csv primarycilia.csv</pre>
+
+<h3>Load a primary cilia csv (9+2)</h3>
+<pre>ciliabuild_from_csv template_csv ciliatip.csv</pre>
+
+<h2>Options</h2>
+
+<h3 id="csv_options">File and Core Options</h3>
+<dl>
+    <dt><tt>template_csv</tt> <var>string</var></dt>
+    <dd>The path to the input 3D CSV file containing the full geometry definition. (e.g., 'custom_axoneme.csv')</dd>
+
+    <dt><tt>doublet_a_radius</tt> <var>float</var></dt>
+    <dd>Radius of the A-tubule in Å. (e.g., 125.0)</dd>
+    
+    <dt><tt>doublet_b_radius</tt> <var>float</var></dt>
+    <dd>Radius of the B-tubule in Å. (e.g., 135.0)</dd>
+
+    <dt><tt>cp_radius</tt> <var>float</var></dt>
+    <dd>Radius of the Central Pair (CP) singlet microtubules in Å. (e.g., 125.0)</dd>
+
+    <dt><tt>draw_central_pair</tt> <var>boolean</var></dt>
+    <dd>If <code>True</code>, attempts to draw the Central Pair, Membrane, and Cap based on the corresponding <code>DoubletNumber</code> entries in the CSV.</dd>
+    
+    <dt><tt>membrane</tt> <var>boolean</var></dt>
+    <dd>If <code>True</code>, attempts to draw the membrane based on <code>DoubletNumber = 0</code> entries in the CSV.</dd>
+    
+    <dt><tt>membrane_radius</tt> <var>float</var></dt>
+    <dd>Radius of the membrane cylinder in Å (used if the membrane is drawn). (e.g., 1100.0)</dd>
+
+</dl>
+
+
+<h2 id="csv_format">3D Geometry CSV File Format</h2>
+<p>
+    The input CSV file must contain a specific set of columns for each point along the microtubule's centerline. 
+    Each row defines the parameters for a single point, allowing for complex, custom 3D curves and structures.
+</p>
+
+<h3>Required Columns</h3>
+<table border="1">
+    <thead>
+        <tr>
+            <th>Column Name</th>
+            <th>Type</th>
+            <th>Description</th>
+        </tr>
+    </thead>
+    <tbody>
+        <tr>
+            <td><code>DoubletNumber</code></td>
+            <td>Integer</td>
+            <td><strong>Component Identifier:</strong> Defines the type of structure this row describes.
+                <ul>
+                    <li>Positive Integers (e.g., 1 to 9): Microtubule Doublet or Triplet Number.</li>
+                    <li><code>-1</code>: Central Pair Microtubules.</li>
+                    <li><code>-2</code>: Distal Cap/Bulb complex.</li>
+                    <li><code>0</code>: Outer Membrane.</li>
+                </ul>
+            </td>
+        </tr>
+        <tr>
+            <td><code>X, Y, Z</code></td>
+            <td>Float</td>
+            <td>The 3D coordinate (in Ångströms) of the component's centerline at this point.</td>
+        </tr>
+        <tr>
+            <td><code>Idx_A, Idx_B, Idx_C</code></td>
+            <td>Integer (0 or 1)</td>
+            <td><strong>Draw Flags:</strong> Indicates whether to draw the respective tubule at this specific centerline point (1=Draw, 0=Skip). This controls the length of individual tubules (A, B, or C).</td>
+        </tr>
+        <tr>
+            <td><code>Angle</code></td>
+            <td>Float</td>
+            <td><strong>Rotation Angle:</strong> The rotation angle (in degrees or radians, depending on implementation) of the entire component around the Z-axis. For doublet/triplet structures, this is the angle of the local normal/binormal frame. <em>(Note: For DMT1, this often starts at 90 degrees; subsequent doublets are typically offset by 40 degrees.)</em></td>
+        </tr>
+        <tr>
+            <td><code>A_Shift, B_Shift, C_Shift</code></td>
+            <td>Float</td>
+            <td><strong>Lateral Shift:</strong> The amount (in Å) by which the A, B, or C tubule centerline is shifted laterally away from the component's (Doublet/CP) main centerline before rendering. This generates the characteristic overlap.</td>
+        </tr>
+    </tbody>
+</table>
+<p></p>
+
+<h3>Recommended Shift Values</h3>
+<ul>
+    <li><strong>For Doublet Microtubules (<code>DoubletNumber > 0</code>):</strong> <code>A_Shift</code> = ~-70 Å, <code>B_Shift</code> = ~70 Å. (<code>C_Shift</code> = 0 or ignored)</li>
+    <li><strong>For Central Pair Microtubules (<code>DoubletNumber = -1</code>):</strong> <code>A_Shift</code> = ~-160 Å, <code>B_Shift</code> = ~160 Å. (Separates the two singlets; <code>Idx_A</code> and <code>Idx_B</code> are used to draw the two singlets).</li>
+    <li><strong>For Cap and Membrane (<code>DoubletNumber = -2</code>, <code>0</code>):</strong> <code>Idx_A</code> and <code>Idx_B</code> are typically 1, and <code>Angle</code>, <code>A_Shift</code>, and <code>B_Shift</code> are usually 0 (or ignored).</li>
+</ul>
+<hr>
+CiliaBuilder 1.0.0 by Builab@McGill, Jan 2026
+
+</body>
+</html>
