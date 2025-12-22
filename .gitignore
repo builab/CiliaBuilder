@@ -4,3 +4,6 @@
 *build
 *dist
 *legacy
+src/*.DS_Store
+src/geometry/*.DS_Store
+TODO.md
