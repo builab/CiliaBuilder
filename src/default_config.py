@@ -115,7 +115,7 @@ CENTRIOLE_TRIPLET_AB_SHIFT = 70.0  # Lateral shift for A and B tubules from trip
 CENTRIOLE_TRIPLET_C_SHIFT = 200.0  # Lateral shift for C-tubule from triplet center
 CENTRIOLE_TRIPLET_B_LENGTH_DIFF = MAX_INTERVAL  # B-tubule is shorter than A by this amount (20 Å)
 CENTRIOLE_TRIPLET_C_LENGTH_DIFF = 2 * MAX_INTERVAL  # C-tubule is shorter than A by this amount (40 Å)
-CENTRIOLE_Z_OFFSET_END = 2 * MAX_INTERVAL  # Z-coordinate where centriole end is positioned (40 Å)
+CENTRIOLE_Z_OFFSET_END = 3 * MAX_INTERVAL  # Z-coordinate where centriole end is positioned (40 Å)
 
 # --- Colors (RGBA: 0-255) ---
 CENTRIOLE_TRIPLET_A_COLOR = (100, 100, 255, 255)  # Blue for A-tubules
