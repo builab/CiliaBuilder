@@ -1,20 +1,33 @@
 """
-General function to draw multiple tubules, membrane and cap
-"""          
+General functions to draw tubules, membranes, and geometric primitives for cilia/centriole visualization.
+"""
+
 import numpy as np
 from chimerax.core.models import Surface
 from chimerax.surface import calculate_vertex_normals
 
-# --- Helper Function to Replicate Tube Frame Calculation (For Seamlessness) ---
+
 def _calculate_local_frame(tangent):
-    """Replicates the frame calculation inside create_tube_geometry."""
+    """
+    Calculate local coordinate frame (normal, binormal) for a tangent vector.
+    
+    Parameters:
+    -----------
+    tangent : np.ndarray
+        Tangent vector (will be normalized)
+    
+    Returns:
+    --------
+    tuple
+        (normal, binormal) orthonormal vectors
+    """
     tangent = tangent / np.linalg.norm(tangent)
     
-    up = np.array([0.0, 1.0, 0.0]) 
+    up = np.array([0.0, 1.0, 0.0])
     
-    # If the tangent is near parallel to 'up', choose X-axis instead
+    # If tangent is parallel to up, use X-axis instead
     if np.linalg.norm(np.cross(tangent, up)) < 1e-6:
-         up = np.array([1.0, 0.0, 0.0])
+        up = np.array([1.0, 0.0, 0.0])
     
     normal = np.cross(tangent, up)
     normal = normal / np.linalg.norm(normal)
@@ -22,14 +35,30 @@ def _calculate_local_frame(tangent):
     
     return normal, binormal
 
-# --- Helper Function to Generate Sphere Geometry ---
+
 def _create_sphere_geometry(center, radius=10.0, segments_u=32, segments_v=16):
     """
     Generate vertices and triangles for a sphere using spherical coordinates.
+    
+    Parameters:
+    -----------
+    center : array-like
+        Center point (x, y, z)
+    radius : float
+        Sphere radius
+    segments_u : int
+        Number of longitudinal segments
+    segments_v : int
+        Number of latitudinal segments
+    
+    Returns:
+    --------
+    tuple
+        (vertices, triangles) as numpy arrays
     """
     center = np.array(center)
     
-    # Angles for latitude (phi, 0 to pi) and longitude (theta, 0 to 2*pi)
+    # Angles for latitude (phi) and longitude (theta)
     phi = np.linspace(0, np.pi, segments_v + 1)
     theta = np.linspace(0, 2 * np.pi, segments_u, endpoint=False)
 
@@ -45,39 +74,47 @@ def _create_sphere_geometry(center, radius=10.0, segments_u=32, segments_v=16):
 
     vertices = np.array(vertices, dtype=np.float32)
     
-    # Generate triangles (quads)
+    # Generate triangles
     triangles = []
-    
-    # Number of vertices per 'ring' (segments_u)
     v_ring = segments_u
     
-    # Iterate through each quad
     for i in range(segments_v):
         for j in range(segments_u):
-            
             p1 = i * v_ring + j
             p2 = i * v_ring + (j + 1) % v_ring
             p3 = (i + 1) * v_ring + (j + 1) % v_ring
             p4 = (i + 1) * v_ring + j
             
-            # Triangle 1
             triangles.append([p1, p4, p3])
-            # Triangle 2
             triangles.append([p1, p3, p2])
 
     return vertices, np.array(triangles, dtype=np.int32)
 
+
 def _create_tube_geometry(path_points, radius=10.0, segments=16, capped=True):
     """
     Create tube geometry from a path of points.
-    ... (Existing code for create_tube_geometry) ...
+    
+    Parameters:
+    -----------
+    path_points : np.ndarray
+        Array of shape (n, 3) defining the tube path
+    radius : float
+        Tube radius
+    segments : int
+        Number of segments around circumference
+    capped : bool
+        Whether to add end caps
+    
+    Returns:
+    --------
+    tuple
+        (vertices, triangles) as numpy arrays
     """
     n_points = len(path_points)
     
-    # --- ERROR PREVENTION FIX ---
     if n_points < 2:
         return np.empty((0, 3), dtype=np.float32), np.empty((0, 3), dtype=np.int32)
-    # ----------------------------
 
     # Create circle points around the path
     theta = np.linspace(0, 2*np.pi, segments, endpoint=False)
@@ -86,7 +123,7 @@ def _create_tube_geometry(path_points, radius=10.0, segments=16, capped=True):
     
     vertices = []
     
-    # For each point along the path
+    # Generate vertices along path
     for i in range(n_points):
         # Calculate tangent vector
         if i == 0:
@@ -96,10 +133,10 @@ def _create_tube_geometry(path_points, radius=10.0, segments=16, capped=True):
         else:
             tangent = path_points[i+1] - path_points[i-1]
         
-        # Calculate local frame (same logic as in _calculate_local_frame)
+        # Calculate local frame
         normal, binormal = _calculate_local_frame(tangent)
         
-        # Create circle of vertices around this point
+        # Create ring of vertices
         for j in range(segments):
             vertex = path_points[i] + circle_x[j] * normal + circle_y[j] * binormal
             vertices.append(vertex)
@@ -110,36 +147,30 @@ def _create_tube_geometry(path_points, radius=10.0, segments=16, capped=True):
     triangles = []
     for i in range(n_points - 1):
         for j in range(segments):
-            # Current ring
             v0 = i * segments + j
             v1 = i * segments + (j + 1) % segments
-            # Next ring
             v2 = (i + 1) * segments + j
             v3 = (i + 1) * segments + (j + 1) % segments
             
-            # Two triangles per quad
             triangles.append([v0, v2, v1])
             triangles.append([v1, v2, v3])
     
     # Add end caps if requested
     if capped:
-        # Store current vertex count
         base_vertex_count = len(vertices)
-        
-        # Add center vertices for caps
         start_center_idx = base_vertex_count
         end_center_idx = base_vertex_count + 1
         
         vertices = np.vstack([vertices, [path_points[0]], [path_points[-1]]])
         
-        # Start cap (pointing inward, so reverse winding)
+        # Start cap (reverse winding for inward normal)
         for j in range(segments):
             v0 = start_center_idx
             v1 = j
             v2 = (j + 1) % segments
             triangles.append([v0, v2, v1])
         
-        # End cap (pointing outward)
+        # End cap (outward normal)
         last_ring_start = (n_points - 1) * segments
         for j in range(segments):
             v0 = end_center_idx
@@ -151,51 +182,40 @@ def _create_tube_geometry(path_points, radius=10.0, segments=16, capped=True):
     
     return vertices, triangles
 
-# --- NEW HELPER FUNCTION for Combining Geometry ---
-def _combine_geometries(geom_list):
-    """Utility to combine multiple (vertices, triangles) tuples."""
-    all_vertices = []
-    all_triangles = []
-    vertex_count = 0
-    
-    for vertices, triangles in geom_list:
-        if len(vertices) > 0:
-            all_vertices.append(vertices)
-            # Offset triangle indices by the current total vertex count
-            all_triangles.append(triangles + vertex_count)
-            vertex_count += len(vertices)
-            
-    if len(all_vertices) == 0:
-        return np.empty((0, 3), dtype=np.float32), np.empty((0, 3), dtype=np.int32)
-        
-    return np.vstack(all_vertices), np.vstack(all_triangles)
 
-
-# --- NEW HELPER FUNCTION for Flat Cap Geometry (Modified to use frame) ---
 def _create_disk_geometry(center, radius=10.0, segments=32, frame=None):
     """
-    Generate vertices and triangles for a flat circular disk, using a frame 
-    to ensure alignment with the cylinder.
+    Generate vertices and triangles for a flat circular disk.
     
     Parameters:
-    ...
-    frame (tuple): The (normal, binormal) vectors defining the disk's plane and orientation.
+    -----------
+    center : array-like
+        Center point of the disk
+    radius : float
+        Disk radius
+    segments : int
+        Number of segments around circumference
+    frame : tuple, optional
+        (normal, binormal) vectors defining disk orientation
+    
+    Returns:
+    --------
+    tuple
+        (vertices, triangles) as numpy arrays
     """
     center = np.array(center)
     
     if frame is None:
-        # Default frame if called standalone (should not happen in capsule function)
         normal = np.array([1.0, 0.0, 0.0])
         binormal = np.array([0.0, 1.0, 0.0])
     else:
         normal, binormal = frame
         
-    # Generate ring vertices
+    # Generate vertices
     theta = np.linspace(0, 2*np.pi, segments, endpoint=False)
+    vertices = [center]  # Center point at index 0
     
-    vertices = [center] # The center point is the first vertex (index 0)
-    
-    # Outer circle vertices (must use the same cosine/sine sequence as the cylinder)
+    # Outer circle vertices
     for angle in theta:
         x = radius * np.cos(angle)
         y = radius * np.sin(angle)
@@ -204,29 +224,337 @@ def _create_disk_geometry(center, radius=10.0, segments=32, frame=None):
         
     vertices = np.array(vertices, dtype=np.float32)
     
-    # Create triangles (fan pattern from the center vertex)
+    # Create triangles (fan pattern from center)
     triangles = []
     center_idx = 0
     
     for i in range(segments):
-        v1 = i + 1  # Index of current point on the circumference
-        v2 = (i + 1) % segments + 1 # Index of next point (loops back)
-        
-        # Triangle (Center, V1, V2)
-        # Note: Winding should be consistent (e.g., counter-clockwise from the center's perspective)
+        v1 = i + 1
+        v2 = (i + 1) % segments + 1
         triangles.append([center_idx, v1, v2])
         
     return vertices, np.array(triangles, dtype=np.int32)
+    
+
+def _create_ring_cap_geometry(center, direction, inner_radius, outer_radius, segments=32):
+    """
+    Create cylindrical ring (annulus) cap geometry.
+    
+    Parameters:
+    -----------
+    center : np.ndarray
+        Center point of the ring
+    direction : np.ndarray
+        Direction vector for ring normal
+    inner_radius : float
+        Inner radius
+    outer_radius : float
+        Outer radius
+    segments : int
+        Number of segments around circumference
+    
+    Returns:
+    --------
+    tuple
+        (vertices, triangles) as numpy arrays
+    """
+    # Normalize direction vector
+    direction = direction / np.linalg.norm(direction)
+    
+    # Create orthonormal basis
+    up = np.array([0.0, 1.0, 0.0])
+    if np.linalg.norm(np.cross(direction, up)) < 1e-6:
+        up = np.array([1.0, 0.0, 0.0])
+    
+    normal = np.cross(direction, up)
+    normal = normal / np.linalg.norm(normal)
+    binormal = np.cross(direction, normal)
+    
+    # Generate vertices
+    theta = np.linspace(0, 2*np.pi, segments, endpoint=False)
+    vertices = []
+    
+    # Inner ring
+    for angle in theta:
+        x = inner_radius * np.cos(angle)
+        y = inner_radius * np.sin(angle)
+        vertex = center + x * normal + y * binormal
+        vertices.append(vertex)
+    
+    # Outer ring
+    for angle in theta:
+        x = outer_radius * np.cos(angle)
+        y = outer_radius * np.sin(angle)
+        vertex = center + x * normal + y * binormal
+        vertices.append(vertex)
+    
+    vertices = np.array(vertices, dtype=np.float32)
+    
+    # Create triangles
+    triangles = []
+    for i in range(segments):
+        next_i = (i + 1) % segments
+        
+        v0 = i
+        v1 = next_i
+        v2 = segments + i
+        v3 = segments + next_i
+        
+        triangles.append([v0, v2, v1])
+        triangles.append([v1, v2, v3])
+    
+    triangles = np.array(triangles, dtype=np.int32)
+    
+    return vertices, triangles
+    
+
+def _combine_geometries(geom_list):
+    """
+    Combine multiple (vertices, triangles) tuples into a single geometry.
+    
+    Parameters:
+    -----------
+    geom_list : list
+        List of (vertices, triangles) tuples
+    
+    Returns:
+    --------
+    tuple
+        Combined (vertices, triangles)
+    """
+    all_vertices = []
+    all_triangles = []
+    vertex_count = 0
+    
+    for vertices, triangles in geom_list:
+        if len(vertices) > 0:
+            all_vertices.append(vertices)
+            all_triangles.append(triangles + vertex_count)
+            vertex_count += len(vertices)
+            
+    if len(all_vertices) == 0:
+        return np.empty((0, 3), dtype=np.float32), np.empty((0, 3), dtype=np.int32)
+        
+    return np.vstack(all_vertices), np.vstack(all_triangles)
+    
+    
+def generate_centerline_points(length=1500.0, interval=160, start_point=(0, 0, 0)):
+    """
+    Generate points along a straight centerline in the Z direction.
+    
+    Parameters:
+    -----------
+    length : float
+        Total length
+    interval : float
+        Spacing between points
+    start_point : tuple
+        Starting (x, y, z) coordinates
+    
+    Returns:
+    --------
+    np.ndarray
+        Array of shape (n, 3) with centerline points
+    """
+    num_points = int(length / interval) + 1
+    z_coords = np.linspace(start_point[2], start_point[2] + length, num_points)
+    x_coords = np.full(num_points, start_point[0])
+    y_coords = np.full(num_points, start_point[1])
+    
+    points = np.column_stack([x_coords, y_coords, z_coords])
+    return points
 
 
-# --- MODIFIED FUNCTION: CAPSULE SURFACE GENERATOR (Fixed for seamless flat end) ---
+def shift_path_perpendicular(path_points, shift_distance, angle_degrees):
+    """
+    Shift a path perpendicular to its axis.
+    
+    Uses stable reference frame to prevent kinks/twists in the shifted path.
+    
+    Parameters:
+    -----------
+    path_points : np.ndarray
+        Array of path points, shape (n, 3)
+    shift_distance : float
+        Radial shift distance
+    angle_degrees : float
+        Angle for shift direction
+    
+    Returns:
+    --------
+    np.ndarray
+        Shifted path points
+    """
+    n_points = len(path_points)
+    shifted_points = np.zeros_like(path_points)
+    angle_rad = np.radians(angle_degrees)
+    
+    for i in range(n_points):
+        # Calculate tangent
+        if i == 0:
+            tangent = path_points[i+1] - path_points[i]
+        elif i == n_points - 1:
+            tangent = path_points[i] - path_points[i-1]
+        else:
+            tangent = path_points[i+1] - path_points[i-1]
+        
+        tangent = tangent / np.linalg.norm(tangent)
+        
+        # Use stable reference vector
+        up = np.array([0.0, 1.0, 0.0])
+        if np.linalg.norm(np.cross(tangent, up)) < 1e-6:
+            up = np.array([1.0, 0.0, 0.0])
+
+        normal = np.cross(tangent, up)
+        normal = normal / np.linalg.norm(normal)
+        binormal = np.cross(tangent, normal)
+        
+        # Calculate and apply shift
+        shift_vector = shift_distance * (np.cos(angle_rad) * normal + np.sin(angle_rad) * binormal)
+        shifted_points[i] = path_points[i] + shift_vector
+    
+    return shifted_points
+
+
+def generate_tube_surface(session, path_points, radius=10.0, segments=16, 
+                         color=(255, 255, 0, 255), name="tube", capped=True, add_to_session=True):
+    """
+    Generate a tube surface model in ChimeraX.
+    
+    Parameters:
+    -----------
+    session : ChimeraX session
+        Session object
+    path_points : np.ndarray
+        Path points for tube centerline
+    radius : float
+        Tube radius
+    segments : int
+        Number of circumferential segments
+    color : tuple
+        RGBA color (0-255)
+    name : str
+        Surface name
+    capped : bool
+        Whether to cap tube ends
+    add_to_session : bool
+        Whether to add to session immediately
+    
+    Returns:
+    --------
+    Surface or None
+        Created surface model
+    """
+    vertices, triangles = _create_tube_geometry(path_points, radius, segments, capped)
+    
+    if len(vertices) == 0:
+        session.logger.warning(f"Skipping '{name}': Path must have at least 2 points")
+        return None
+    
+    normals = calculate_vertex_normals(vertices, triangles)
+    
+    surf = Surface(name, session)
+    surf.set_geometry(vertices, normals, triangles)
+    surf.color = np.array(color, dtype=np.uint8)
+    
+    if add_to_session:
+        session.models.add([surf])
+    
+    return surf
+    
+    
+def generate_sphere_surface(session, center=(0.0, 0.0, 0.0), radius=10.0, segments_u=32, segments_v=16,
+                            color=(255, 255, 0, 255), name="sphere", add_to_session=True):
+    """
+    Generate a sphere surface model for a visualization session (replicates tube structure).
+    
+    Parameters:
+    -----------
+    session : ChimeraX session
+        Session object
+    center : tuple
+        Center of the sphere
+    radius : float
+        Sphere radius
+    segments_u : int
+        Number of circumferential segments
+    segments_v : int
+        Number of circumferential segments
+    color : tuple
+        RGBA color (0-255)
+    name : str
+        Surface name
+    add_to_session : bool
+        Whether to add to session immediately
+    
+    Returns:
+    --------
+    Surface or None
+        Created surface model
+    """
+    center = np.array(center)
+
+    # Create geometry
+    vertices, triangles = create_sphere_geometry(center, radius, segments_u, segments_v)
+    
+    # Check for valid geometry (always valid for sphere, but follows tube structure)
+    if len(vertices) == 0:
+        session.logger.warning(f"Skipping surface creation for '{name}': No vertices generated.")
+        return None
+    
+    # Calculate normals (optimized for sphere: normal is the normalized vector from center to vertex)
+    # The 'calculate_vertex_normals' helper is not needed
+    vectors_from_center = vertices - center
+    normals = vectors_from_center / np.linalg.norm(vectors_from_center, axis=1)[:, np.newaxis]
+    
+    # Create surface model
+    surf = Surface(name, session)
+    surf.set_geometry(vertices, normals, triangles)
+    
+    # Set color (convert to 0-255 uint8 array)
+    color_array = np.array(color, dtype=np.uint8)
+    surf.color = color_array
+    
+    # Add to session if requested
+    if add_to_session:
+        # Assumes session.models is a list-like object that accepts new models
+        session.models.add([surf])
+    
+    return surf
+    
+    
 def generate_capsule_surface(session, center=(0.0, 0.0, 0.0), capsule_length=25.0, radius=10.0, 
                              segments=32, color=(255, 255, 0, 255), name="capsule", 
                              flat_end_z='low', add_to_session=True):
     """
-    Generate a capsule surface model (cylinder with two hemispherical caps) 
+    Generate a capsule surface model (cylinder with two hemispherical caps) for cap complex
     in ChimeraX, centered around the Z-axis, with an option for one end to be flat.
+        Parameters:
+    -----------
+    session : ChimeraX session
+        Session object
+    center : tuple
+        Center of the capsule (Z axis)
+    capsule_length : float
+        Length of the capsule in total
+    radius : float
+        Sphere radius
+    segments : int
+        Number of circumferential segments
+    color : tuple
+        RGBA color (0-255)
+    name : str
+        Surface name
+    flat_end_z : str
+        Kinds of end 'low', 'high' or 'both'
+    add_to_session : bool
+        Whether to add to session immediately
+    Returns:
+    --------
+    Surface or None
+        Created surface model
     """
+    
     center = np.array(center)
     
     # --- 1. Calculate dimensions and centers ---
@@ -329,141 +657,6 @@ def generate_capsule_surface(session, center=(0.0, 0.0, 0.0), capsule_length=25.
     
     return surf
 
-# --- Main Sphere Surface Generator ---
-def generate_sphere_surface(session, center=(0.0, 0.0, 0.0), radius=10.0, segments_u=32, segments_v=16,
-                            color=(255, 255, 0, 255), name="sphere", add_to_session=True):
-    """
-    Generate a sphere surface model for a visualization session (replicates tube structure).
-    
-    Note: Sphere vertex normals are calculated directly from the center, 
-    simplifying the normal calculation step.
-    """
-    center = np.array(center)
-
-    # Create geometry
-    vertices, triangles = create_sphere_geometry(center, radius, segments_u, segments_v)
-    
-    # Check for valid geometry (always valid for sphere, but follows tube structure)
-    if len(vertices) == 0:
-        session.logger.warning(f"Skipping surface creation for '{name}': No vertices generated.")
-        return None
-    
-    # Calculate normals (optimized for sphere: normal is the normalized vector from center to vertex)
-    # The 'calculate_vertex_normals' helper is not needed
-    vectors_from_center = vertices - center
-    normals = vectors_from_center / np.linalg.norm(vectors_from_center, axis=1)[:, np.newaxis]
-    
-    # Create surface model
-    surf = Surface(name, session)
-    surf.set_geometry(vertices, normals, triangles)
-    
-    # Set color (convert to 0-255 uint8 array)
-    color_array = np.array(color, dtype=np.uint8)
-    surf.color = color_array
-    
-    # Add to session if requested
-    if add_to_session:
-        # Assumes session.models is a list-like object that accepts new models
-        session.models.add([surf])
-    
-    return surf
-    
-def generate_tube_surface(session, path_points, radius=10.0, segments=16, 
-                         color=(255, 255, 0, 255), name="tube", capped=True, add_to_session=True):
-    """
-    Generate a tube surface model in ChimeraX.
-    """
-    # Create geometry
-    vertices, triangles = _create_tube_geometry(path_points, radius, segments, capped)
-    
-    # If geometry creation failed due to too few points, skip surface creation
-    if len(vertices) == 0:
-        session.logger.warning(f"Skipping surface creation for '{name}': Path must have at least 2 points.")
-        return None
-    
-    # Calculate normals
-    normals = calculate_vertex_normals(vertices, triangles)
-    
-    # Create surface model
-    surf = Surface(name, session)
-    surf.set_geometry(vertices, normals, triangles)
-    
-    # Set color (convert to 0-255 uint8 array)
-    color_array = np.array(color, dtype=np.uint8)
-    surf.color = color_array
-    
-    # Add to session if requested
-    if add_to_session:
-        session.models.add([surf])
-    
-    return surf
-    
-
-
-def generate_centerline_points(length=1500.0, interval=160, start_point=(0, 0, 0)):
-    """
-    Generate points along a straight center line in the Z direction.
-    """
-    # Calculate number of points
-    num_points = int(length / interval) + 1
-    
-    # Generate z coordinates
-    z_coords = np.linspace(start_point[2], start_point[2] + length, num_points)
-    
-    # x and y remain constant (straight line in z direction)
-    x_coords = np.full(num_points, start_point[0])
-    y_coords = np.full(num_points, start_point[1])
-    
-    # Combine into a single array
-    points = np.column_stack([x_coords, y_coords, z_coords])
-    
-    return points
-
-
-def shift_path_perpendicular(path_points, shift_distance, angle_degrees):
-    """
-    Shift a path perpendicular to its axis by a given distance and angle.
-    
-    This function uses a stable reference vector (Y-axis) to calculate the Normal/Binormal 
-    frame, which prevents sudden kinks/twists.
-    """
-    n_points = len(path_points)
-    shifted_points = np.zeros_like(path_points)
-    
-    # Convert angle to radians
-    angle_rad = np.radians(angle_degrees)
-    
-    for i in range(n_points):
-        # Calculate tangent vector
-        if i == 0:
-            tangent = path_points[i+1] - path_points[i]
-        elif i == n_points - 1:
-            tangent = path_points[i] - path_points[i-1]
-        else:
-            tangent = path_points[i+1] - path_points[i-1]
-        
-        tangent = tangent / np.linalg.norm(tangent)
-        
-        # --- Kink Fix: Use a stable reference vector (Y-axis) ---
-        up = np.array([0.0, 1.0, 0.0]) 
-        
-        # If the tangent is near parallel to 'up', choose X-axis instead
-        if np.linalg.norm(np.cross(tangent, up)) < 1e-6:
-             up = np.array([1.0, 0.0, 0.0])
-        # ---------------------------------------------------------
-
-        normal = np.cross(tangent, up)
-        normal = normal / np.linalg.norm(normal)
-        binormal = np.cross(tangent, normal)
-        
-        # Calculate shift direction based on angle
-        shift_vector = shift_distance * (np.cos(angle_rad) * normal + np.sin(angle_rad) * binormal)
-        
-        # Apply shift
-        shifted_points[i] = path_points[i] + shift_vector
-    
-    return shifted_points
-
 
 def draw_tubules(session, 
                  length=None,
@@ -479,48 +672,66 @@ def draw_tubules(session,
                  add_to_session=False):
     """
     Draw multiple tubules (doublet, triplet, etc.) shifted perpendicular to centerline.
-    """
     
-    # Validate input: need either length or centerline_points
+    Parameters:
+    -----------
+    session : ChimeraX session
+        Session object
+    length : float, optional
+        Base length for tubules (if centerline_points not provided)
+    centerline_points : np.ndarray, optional
+        Centerline path points
+    interval : float
+        Spacing between points
+    angle : float
+        Rotation angle in degrees
+    radii : list, optional
+        Radius for each tubule
+    shift_distances : list, optional
+        Radial shift for each tubule
+    length_diffs : list, optional
+        Length differences from base length
+    tubule_names : list, optional
+        Names for each tubule
+    colors : list, optional
+        RGBA colors for each tubule
+    group_name : str
+        Name for the tubule group
+    add_to_session : bool
+        Whether to add to session immediately
+    
+    Returns:
+    --------
+    list
+        List of created Surface models
+    """
     if length is None and centerline_points is None:
         raise ValueError("Must provide either 'length' or 'centerline_points'")
     
-    # Determine number of tubules from the first provided list parameter
+    # Determine number of tubules
     n_tubules = None
     for param in [radii, shift_distances, length_diffs, tubule_names, colors]:
         if param is not None:
             n_tubules = len(param)
             break
     
-    # Default to doublet (2 tubules) if nothing specified
     if n_tubules is None:
         n_tubules = 2
     
-    # Set defaults for all parameters
+    # Set defaults
     if radii is None:
-        if n_tubules == 2:
-            radii = [125, 130]
-        elif n_tubules == 3:
-            radii = [125, 130, 135]
-        else:
-            radii = [125 + i*5 for i in range(n_tubules)]
+        radii = [125 + i*5 for i in range(n_tubules)]
     
     if shift_distances is None:
         if n_tubules == 2:
-            shift_distances = [70, -70]  # Opposite sides
+            shift_distances = [70, -70]
         elif n_tubules == 3:
-            shift_distances = [70, 0, -70]  # Spread across
+            shift_distances = [70, 0, -70]
         else:
-            # Distribute symmetrically around center
             shift_distances = [70 - (140 / (n_tubules - 1)) * i for i in range(n_tubules)]
     
     if length_diffs is None:
-        if n_tubules == 2:
-            length_diffs = [0, -5]
-        elif n_tubules == 3:
-            length_diffs = [0, -5, -10]
-        else:
-            length_diffs = [-i*5 for i in range(n_tubules)]
+        length_diffs = [-i*5 for i in range(n_tubules)]
     
     if tubule_names is None:
         default_names = ["A", "B", "C", "D", "E", "F", "G", "H", "I"]
@@ -528,18 +739,17 @@ def draw_tubules(session,
     
     if colors is None:
         default_colors = [
-            COLOR_A_TUBULE,   # Red
-            COLOR_B_TUBULE,   # Blue
-            COLOR_C_TUBULE,   # Green
+            (100, 100, 255, 255),  # Blue
+            (100, 100, 255, 255),  # Blue
+            (179, 179, 255, 255),  # Light blue
             (255, 255, 100, 255),  # Yellow
             (255, 100, 255, 255),  # Magenta
             (100, 255, 255, 255),  # Cyan
         ]
         colors = default_colors[:n_tubules]
     
-    # Validate all lists have the same length
-    if not all(len(lst) == n_tubules for lst in [radii, shift_distances, 
-                                                   length_diffs, tubule_names, colors]):
+    # Validate list lengths
+    if not all(len(lst) == n_tubules for lst in [radii, shift_distances, length_diffs, tubule_names, colors]):
         raise ValueError(f"All parameter lists must have length {n_tubules}")
     
     # Create tubules
@@ -547,113 +757,94 @@ def draw_tubules(session,
     
     for i in range(n_tubules):
         # Determine centerline for this tubule
-        center_path_to_shift = None
-        
         if centerline_points is not None:
-            # --- FIX: Truncate the provided centerline based on length_diffs ---
             center_path = centerline_points
             
-            # This logic enables length_diffs when centerline_points is passed
+            # Truncate based on length_diffs if length is provided
             if length is not None and length_diffs is not None:
                 tubule_length = length + length_diffs[i]
     
-                # Calculate cumulative arc length along the centerline
                 if len(center_path) >= 2:
                     segment_lengths = np.linalg.norm(np.diff(center_path, axis=0), axis=1)
                     cumulative_length = np.concatenate(([0], np.cumsum(segment_lengths)))
         
-                    # Find the index where cumulative length exceeds tubule_length
                     n_keep = np.searchsorted(cumulative_length, tubule_length, side='right')
-                    n_keep = max(2, min(n_keep, len(center_path)))  # Ensure valid range
+                    n_keep = max(2, min(n_keep, len(center_path)))
                 else:
                     n_keep = len(center_path)
 
-                # Truncate the path to the correct length
                 center_path_to_shift = center_path[:n_keep]
             else:
                 center_path_to_shift = center_path
-            # -----------------------------------------------------------------
         else:
-            # Original logic: Calculate centerline from scratch (only used if centerline_points=None)
             tubule_length = length + length_diffs[i]
             center_path_to_shift = generate_centerline_points(tubule_length, interval, start_point=(0, 0, 0))
         
-        # Shift the path perpendicular to axis using the single angle
+        # Shift path perpendicular
         path = shift_path_perpendicular(center_path_to_shift, shift_distances[i], angle)
         
         # Create tubule surface
-        tube = generate_tube_surface(session, path,
-                                     radius=radii[i],
-                                     segments=32,
-                                     color=colors[i],
-                                     name=tubule_names[i],
-                                     capped=True,
-                                     add_to_session=False)
+        tube = generate_tube_surface(
+            session, path,
+            radius=radii[i],
+            segments=32,
+            color=colors[i],
+            name=tubule_names[i],
+            capped=True,
+            add_to_session=False
+        )
         if tube is not None:
             surfs.append(tube)
     
-    # Add all as a group if requested
+    # Add as group if requested
     if surfs and add_to_session:
         session.models.add_group(surfs, name=group_name)
     
     # Log information
-    if centerline_points is not None:
-        info_lines = [f"Created {len(surfs)}-tubule group \"{group_name}\" from centerline at angle {angle}°:"]
-    else:
-        info_lines = [f"Created {len(surfs)}-tubule group \"{group_name}\" at angle {angle}°:"]
-    
-    if surfs:
-        for i in range(len(surfs)):
-            if centerline_points is not None:
-                info_lines.append(f"  {tubule_names[i]}: radius={radii[i]}, shift={shift_distances[i]:+.1f}")
-            else:
-                info_lines.append(f"  {tubule_names[i]}: length={length + length_diffs[i]}, "
-                                 f"radius={radii[i]}, shift={shift_distances[i]:+.1f}")
-    session.logger.info("\n".join(info_lines))
+    info_source = "from centerline" if centerline_points is not None else ""
+    session.logger.info(f"Created {len(surfs)}-tubule group \"{group_name}\" {info_source} at angle {angle}°")
     
     return surfs
-
 
 
 def draw_membrane(session, centerline_points, radius=1100.0, segments=32, 
                   color=(105, 105, 105, 255), name="membrane", capped=True,
                   membrane_thickness=40.0):
     """
-    Draw a double membrane (inner and outer) with optional cylindrical ring caps.
+    Draw double membrane (inner and outer) with optional ring caps.
     
     Parameters:
     -----------
     session : ChimeraX session
-        The ChimeraX session object
-    centerline_points : numpy.ndarray
-        Array of shape (N, 3) containing the path points for the membrane centerline
+        Session object
+    centerline_points : np.ndarray
+        Membrane centerline path
     radius : float
-        Radius of the inner membrane tube (default: 1100.0)
+        Inner membrane radius
     segments : int
-        Number of segments around the tube circumference (default: 32)
+        Number of circumferential segments
     color : tuple
-        RGBA color tuple (0-255 values) (default: semi-transparent gray)
+        RGBA color (0-255)
     name : str
-        Name for the membrane surface group (default: "membrane")
+        Base name for membrane surfaces
     capped : bool
-        Whether to add cylindrical ring caps at the ends (default: False)
+        Whether to add cylindrical ring caps
     membrane_thickness : float
-        Thickness between inner and outer membranes in Angstroms (default: 40.0)
+        Thickness between inner and outer membranes
     
     Returns:
     --------
-    surfaces : list
-        List of created membrane surface models [inner, outer, start_cap, end_cap]
+    list
+        List of created membrane surfaces [inner, outer, start_cap, end_cap]
     """
-    
-    session.logger.info(f"draw_membrane received {len(centerline_points)} points, Z range: {centerline_points[0][2]:.1f} to {centerline_points[-1][2]:.1f}")
+    session.logger.info(f"Drawing membrane with {len(centerline_points)} points, "
+                       f"Z range: {centerline_points[0][2]:.1f} to {centerline_points[-1][2]:.1f}")
 
     surfaces = []
     
-    # Create inner membrane (uncapped tube)
+    # Inner membrane
     inner_membrane = generate_tube_surface(
-        session, 
-        centerline_points,
+        session, centerline_points,
         radius=radius,
         segments=segments,
         color=color,
@@ -664,13 +855,12 @@ def draw_membrane(session, centerline_points, radius=1100.0, segments=32,
     
     if inner_membrane is not None:
         surfaces.append(inner_membrane)
-        session.logger.info(f"Created inner membrane \"{name}_inner\" (radius={radius})")
+        session.logger.info(f"Created inner membrane (radius={radius})")
     
-    # Create outer membrane (uncapped tube)
+    # Outer membrane
     outer_radius = radius + membrane_thickness
     outer_membrane = generate_tube_surface(
-        session, 
-        centerline_points,
+        session, centerline_points,
         radius=outer_radius,
         segments=segments,
         color=color,
@@ -681,12 +871,12 @@ def draw_membrane(session, centerline_points, radius=1100.0, segments=32,
     
     if outer_membrane is not None:
         surfaces.append(outer_membrane)
-        session.logger.info(f"Created outer membrane \"{name}_outer\" (radius={outer_radius})")
+        session.logger.info(f"Created outer membrane (radius={outer_radius})")
     
-    # Add cylindrical ring caps if requested
+    # Add ring caps if requested
     if capped and len(centerline_points) >= 2:
-        # Start cap (ring at the beginning)
-        start_cap_vertices, start_cap_triangles = create_ring_cap_geometry(
+        # Start cap
+        start_cap_vertices, start_cap_triangles = _create_ring_cap_geometry(
             center=centerline_points[0],
             direction=centerline_points[1] - centerline_points[0],
             inner_radius=radius,
@@ -700,10 +890,10 @@ def draw_membrane(session, centerline_points, radius=1100.0, segments=32,
             start_cap.set_geometry(start_cap_vertices, start_cap_normals, start_cap_triangles)
             start_cap.color = np.array(color, dtype=np.uint8)
             surfaces.append(start_cap)
-            session.logger.info(f"Created start cap \"{name}_start_cap\"")
+            session.logger.info(f"Created start cap")
         
-        # End cap (ring at the end)
-        end_cap_vertices, end_cap_triangles = create_ring_cap_geometry(
+        # End cap
+        end_cap_vertices, end_cap_triangles = _create_ring_cap_geometry(
             center=centerline_points[-1],
             direction=centerline_points[-1] - centerline_points[-2],
             inner_radius=radius,
@@ -717,207 +907,115 @@ def draw_membrane(session, centerline_points, radius=1100.0, segments=32,
             end_cap.set_geometry(end_cap_vertices, end_cap_normals, end_cap_triangles)
             end_cap.color = np.array(color, dtype=np.uint8)
             surfaces.append(end_cap)
-            session.logger.info(f"Created end cap \"{name}_end_cap\"")
+            session.logger.info(f"Created end cap")
     
     return surfaces
 
 
-def create_ring_cap_geometry(center, direction, inner_radius, outer_radius, segments=32):
-    """
-    Create a cylindrical ring (annulus) cap geometry.
-    
-    Parameters:
-    -----------
-    center : numpy.ndarray
-        Center point of the ring (shape: (3,))
-    direction : numpy.ndarray
-        Direction vector for the ring normal (shape: (3,))
-    inner_radius : float
-        Inner radius of the ring
-    outer_radius : float
-        Outer radius of the ring
-    segments : int
-        Number of segments around the ring circumference
-    
-    Returns:
-    --------
-    vertices : numpy.ndarray
-        Array of vertex positions
-    triangles : numpy.ndarray
-        Array of triangle indices
-    """
-    # Normalize direction vector
-    direction = direction / np.linalg.norm(direction)
-    
-    # Create orthonormal basis for the ring plane
-    up = np.array([0.0, 1.0, 0.0])
-    if np.linalg.norm(np.cross(direction, up)) < 1e-6:
-        up = np.array([1.0, 0.0, 0.0])
-    
-    normal = np.cross(direction, up)
-    normal = normal / np.linalg.norm(normal)
-    binormal = np.cross(direction, normal)
-    
-    # Generate ring vertices
-    theta = np.linspace(0, 2*np.pi, segments, endpoint=False)
-    vertices = []
-    
-    # Inner ring vertices
-    for angle in theta:
-        x = inner_radius * np.cos(angle)
-        y = inner_radius * np.sin(angle)
-        vertex = center + x * normal + y * binormal
-        vertices.append(vertex)
-    
-    # Outer ring vertices
-    for angle in theta:
-        x = outer_radius * np.cos(angle)
-        y = outer_radius * np.sin(angle)
-        vertex = center + x * normal + y * binormal
-        vertices.append(vertex)
-    
-    vertices = np.array(vertices, dtype=np.float32)
-    
-    # Create triangles connecting inner and outer rings
-    triangles = []
-    for i in range(segments):
-        next_i = (i + 1) % segments
-        
-        # Inner ring index
-        v0 = i
-        v1 = next_i
-        
-        # Outer ring index
-        v2 = segments + i
-        v3 = segments + next_i
-        
-        # Two triangles per quad (facing outward along direction)
-        triangles.append([v0, v2, v1])
-        triangles.append([v1, v2, v3])
-    
-    triangles = np.array(triangles, dtype=np.int32)
-    
-    return vertices, triangles
-
-def draw_ladders(session, centerline_points=None, angle=0.0, periodicity=160.0,
+def draw_ladders(session, centerline_points=None, angle=0.0, periodicity=320.0,
                 shift_distances=None, radius=20.0, color=None, segments=16,
                 name="LadderStructure", add_to_session=False):
     """
-    Generates a ladder-like structure by connecting two shifted centerlines 
-    at regular intervals (rungs), using _create_tube_geometry for each rung.
-
-    The final structure is a single ChimeraX Surface model combining all rungs.
-
-    Args:
-        session: The ChimeraX session object.
-        centerline_points (np.array): Nx3 array of centerline coordinates.
-        angle (float): Rotation angle (in radians) for the shift plane.
-        periodicity (float): Distance (in Å) between rungs along the centerline.
-        shift_distances (list[float]): Must contain at least two values for the two sides of the ladder.
-        radius (float): Radius of the cylindrical rungs.
-        color (tuple[float]): RGBA color tuple (0.0 to 1.0).
-        segments (int): Number of longitudinal segments for the cylinder.
-        name (str): Name for the resulting surface model.
-        add_to_session (bool): Whether to add the model to the ChimeraX session immediately.
+    Generate ladder-like structure connecting two shifted centerlines at regular intervals.
+    
+    Parameters:
+    -----------
+    session : ChimeraX session
+        Session object
+    centerline_points : np.ndarray
+        Centerline coordinates
+    angle : float
+        Rotation angle in degrees for shift plane
+    periodicity : float
+        Distance between rungs along centerline
+    shift_distances : list
+        Must contain at least two values for ladder sides
+    radius : float
+        Radius of cylindrical rungs
+    color : tuple
+        RGBA color (0-255)
+    segments : int
+        Number of segments for rungs
+    name : str
+        Name for resulting surface
+    add_to_session : bool
+        Whether to add to session immediately
+    
+    Returns:
+    --------
+    Surface or None
+        Combined ladder surface model
     """
-
-    # --- Input Validation ---
+    # Validate inputs
     if centerline_points is None or len(centerline_points) < 2:
-        session.logger.error("Centerline points are required for draw_ladder.")
+        session.logger.error("Centerline points required for draw_ladders")
         return None
 
     if shift_distances is None or len(shift_distances) < 2:
-        session.logger.error("shift_distances must be a list of at least two values.")
+        session.logger.error("shift_distances must contain at least two values")
         return None
     
     if periodicity <= 0:
-        session.logger.error("Periodicity must be a positive value.")
+        session.logger.error("Periodicity must be positive")
         return None
 
-    # 1. Calculate the two shifted centerlines
+    # Calculate shifted centerlines
     shift1_dist = shift_distances[0]
     shift2_dist = shift_distances[1]
 
-    # shift_path_perpendicular must be available
     shift_line_1 = shift_path_perpendicular(centerline_points, shift1_dist, angle)
     shift_line_2 = shift_path_perpendicular(centerline_points, shift2_dist, angle)
     
-    # 2. Resample the lines to find rung anchor points based on periodicity
-    
-    # Calculate cumulative distance along the primary centerline
+    # Find rung anchor points based on periodicity
     path_segments = np.linalg.norm(centerline_points[1:] - centerline_points[:-1], axis=1)
     cumulative_distance = np.insert(np.cumsum(path_segments), 0, 0.0)
     
-    # This ensures the first rung starts one full period distance from the base.
-    rung_distances = np.arange(periodicity, cumulative_distance[-1], periodicity)
-    # --------------------------------------------------------------------------
+    # Start first rung one period from base
+    rung_distances = np.arange(radius*2, cumulative_distance[-1]-radius*2, periodicity)
     
     if len(rung_distances) == 0:
-        session.logger.info("INFO: No rungs drawn after skipping the first period.")
+        session.logger.info("No rungs drawn (centerline too short for periodicity)")
         return None
 
     rung_indices = []
     for dist in rung_distances:
-        # Find the index of the point whose cumulative distance is closest to 'dist'
         idx = np.argmin(np.abs(cumulative_distance - dist))
-        
-        # Ensure points are spaced apart to avoid redundant rungs
         if not rung_indices or idx != rung_indices[-1]:
             rung_indices.append(idx)
-            
            
-    # 3. Generate individual rung geometries
+    # Generate rung geometries
     rung_geometries = []
 
     for idx in rung_indices:
-        # Get start/end points of the rung
-        # Or skip here
         start_pt = shift_line_1[idx]
         end_pt = shift_line_2[idx]
-        
-        # The centerline for one rung is just the two anchor points
         rung_centerline = np.array([start_pt, end_pt], dtype=np.float32)
 
-        # Use the assumed existing helper function to create tube geometry
-        # Assuming caps are wanted for the short rungs
         rung_verts, rung_tris = _create_tube_geometry(
-            rung_centerline, 
-            radius, 
-            segments, 
-            capped=True
+            rung_centerline, radius, segments, capped=True
         )
 
         if rung_verts is not None and rung_verts.shape[0] > 0:
             rung_geometries.append((rung_verts, rung_tris))
-            
-    session.logger.info(f"DEBUG: Successfully generated geometry for {len(rung_geometries)} rungs.")    
-        
+    
     if not rung_geometries:
-        session.logger.info("No rungs were successfully generated.")
+        session.logger.info("No rungs successfully generated")
         return None
 
-    # 4. Combine all rung geometries using the helper function
+    # Combine geometries
     final_vertices, final_triangles = _combine_geometries(rung_geometries)
-
-    session.logger.info(f"DEBUG: Final vertices shape: {final_vertices.shape}")
-    session.logger.info(f"DEBUG: Final triangles shape: {final_triangles.shape}")
     
-    # 5. Create the ChimeraX Surface model
+    # Create surface
     surface = Surface(name, session)
-
-    # Calculate normals for shading
     final_normals = calculate_vertex_normals(final_vertices, final_triangles)
     surface.set_geometry(final_vertices, final_normals, final_triangles)
 
-    # Set color (apply to all vertices)
     if color:
-        # Set color (convert to 0-255 uint8 array)
-        color_array = np.array(color, dtype=np.uint8)
-        surface.color = color_array    
+        surface.color = np.array(color, dtype=np.uint8)
         
     if add_to_session:
         session.models.add([surface])
 
-    session.logger.info(f"Generated ladder structure '{name}' with {len(rung_indices)} rungs.")
+    session.logger.info(f"Generated ladder '{name}' with {len(rung_indices)} rungs")
     
     return surface

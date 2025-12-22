@@ -50,7 +50,7 @@ CILIA_NUM_DOUBLETS = 9  # Number of peripheral doublets
 CILIA_RADIUS = 875.0  # Radial distance from center to doublet centers
 CILIA_DRAW_CENTRAL_PAIR = True  # Whether to include C1/C2 central pair
 CILIA_MEMBRANE = True  # Whether to draw ciliary membrane
-CILIA_MEMBRANE_FRACTION = 0.7  # Fraction of cilia length covered by membrane (0.0-1.0)
+CILIA_MEMBRANE_FRACTION = 0.5  # Fraction of cilia length covered by membrane (0.0-1.0)
 CILIA_MEMBRANE_RADIUS = 1100  # Outer radius of ciliary membrane
 
 # --- Centerline Parameters ---
