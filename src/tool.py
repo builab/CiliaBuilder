@@ -266,6 +266,11 @@ class CiliaBuilder(ToolInstance):
         self.close_old_model_check = QCheckBox("Close old model")
         self.close_old_model_check.setChecked(True)
         control_h_layout.addWidget(self.close_old_model_check)
+
+        # ADDED: 3D Print Base Checkbox
+        self.threed_print_check = QCheckBox("3D print base")
+        self.threed_print_check.setChecked(False) # Default to unticked
+        control_h_layout.addWidget(self.threed_print_check)
         
         # Generate button
         generate_button = QPushButton("Generate Model")
@@ -426,6 +431,9 @@ class CiliaBuilder(ToolInstance):
             template_file = self.template_file_input.text()
             tip_length = float(self.tip_length_input.text())
             
+            # ADDED: Get state of new checkbox
+            threed_print = self.threed_print_check.isChecked()
+            
             if length <= 0 or num_units < 0 or ring_radius <= 0:
                  raise ValueError("Length, number of units, and ring radius must be positive.")
 
@@ -455,7 +463,7 @@ class CiliaBuilder(ToolInstance):
 
                     self.session.logger.info(f"Generating cilia from 3D template file: {template_file}")
                     
-                    # Call ciliabuild_from_csv, passing only the necessary rendering parameters
+                    # Call ciliabuild_from_csv, passing necessary rendering parameters AND threed_print
                     new_model = ciliabuild_from_csv(
                         session=self.session,
                         template_csv=template_file,
@@ -470,7 +478,8 @@ class CiliaBuilder(ToolInstance):
                         doublet_a_color=cilia_a_color,
                         doublet_b_color=cilia_b_color,
                         cp_color=cilia_cp_color,
-                        membrane_color=default_config.CILIA_MEMBRANE_COLOR # Use default as it's not exposed
+                        membrane_color=default_config.CILIA_MEMBRANE_COLOR, # Use default as it's not exposed
+                        threed_print=threed_print # ADDED
                     )
                 
                 else:
@@ -485,7 +494,7 @@ class CiliaBuilder(ToolInstance):
                     doublet_length_diff = float(self.cilia_doublet_length_diff_input.text())
                     cp_doublet_length_diff = float(self.cilia_cp_doublet_length_diff_input.text())
                     
-                    # Call the command function and get the returned model
+                    # Call the command function and get the returned model, passing threed_print
                     new_model = ciliabuild(
                         session=self.session,
                         length=length, 
@@ -506,7 +515,8 @@ class CiliaBuilder(ToolInstance):
                         cp_doublet_length_diff=cp_doublet_length_diff,
                         doublet_a_color=cilia_a_color,
                         doublet_b_color=cilia_b_color,
-                        cp_color=cilia_cp_color
+                        cp_color=cilia_cp_color,
+                        threed_print=threed_print # ADDED
                     )
                 
             else:
@@ -524,7 +534,7 @@ class CiliaBuilder(ToolInstance):
                 b_length_diff = float(self.centriole_b_length_diff_input.text())
                 c_length_diff = float(self.centriole_c_length_diff_input.text())
                 
-                # Call the command function and get the returned model
+                # Call the command function and get the returned model, passing threed_print
                 new_model = centriolebuild(
                     session=self.session,
                     length=length,
@@ -540,7 +550,8 @@ class CiliaBuilder(ToolInstance):
                     triplet_c_length_diff=c_length_diff,
                     triplet_a_color=centriole_a_color,
                     triplet_b_color=centriole_b_color,
-                    triplet_c_color=centriole_c_color
+                    triplet_c_color=centriole_c_color,
+                    threed_print=threed_print # ADDED
                 )
             
             # --- 2. Post-Generation Tracking ---

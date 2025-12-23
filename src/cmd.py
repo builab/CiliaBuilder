@@ -72,7 +72,8 @@ def ciliabuild(session,
             doublet_b_color=default_config.CILIA_DOUBLET_B_COLOR,
             cp_color=default_config.CILIA_CP_COLOR,
             membrane_color=default_config.CILIA_MEMBRANE_COLOR,
-            write_csv=False
+            write_csv=False,
+            threed_print=default_config.THREEDPRINT
             ):
 
     centerline_type = type 
@@ -228,7 +229,8 @@ def ciliabuild(session,
         doublet_a_color=doublet_a_color,
         doublet_b_color=doublet_b_color,
         cp_color=cp_color,
-        membrane_color=membrane_color
+        membrane_color=membrane_color,
+        threed_print=threed_print
     )
     
     # Write CSV if requested
@@ -278,7 +280,8 @@ def centriolebuild(session,
                 # Color parameters
                 triplet_a_color=default_config.CENTRIOLE_TRIPLET_A_COLOR,
                 triplet_b_color=default_config.CENTRIOLE_TRIPLET_B_COLOR,
-                triplet_c_color=default_config.CENTRIOLE_TRIPLET_C_COLOR
+                triplet_c_color=default_config.CENTRIOLE_TRIPLET_C_COLOR,
+                threed_print=default_config.THREEDPRINT
                 ):
     """
     Generate and draw a complete centriole structure with triplet microtubules 
@@ -436,7 +439,8 @@ def centriolebuild(session,
         doublet_b_color=triplet_b_color,
         # Triplet-specific C-tubule parameters (used as the 'flag' for Triplet mode)
         triplet_c_radius=triplet_c_radius, 
-        triplet_c_color=triplet_c_color
+        triplet_c_color=triplet_c_color,
+        threed_print=threed_print
     )
     
     if centriole_root is None:
@@ -473,7 +477,8 @@ def ciliabuild_from_csv(session,
             membrane_color=default_config.CILIA_MEMBRANE_COLOR,
             # Triplet Parameters (for centriole CSV files)
             triplet_c_radius=default_config.CENTRIOLE_TRIPLET_C_RADIUS, 
-            triplet_c_color=default_config.CENTRIOLE_TRIPLET_C_COLOR
+            triplet_c_color=default_config.CENTRIOLE_TRIPLET_C_COLOR,
+            threed_print=default_config.THREEDPRINT
             ):
     """
     Generate and draw a complete cilia/centriole structure from a template CSV file.
@@ -566,7 +571,8 @@ def ciliabuild_from_csv(session,
         cp_color=cp_color,
         membrane_color=membrane_color,
         triplet_c_radius=triplet_c_radius, 
-        triplet_c_color=triplet_c_color
+        triplet_c_color=triplet_c_color,
+        threed_print=threed_print
     )
 
 
@@ -601,7 +607,9 @@ ciliabuild_desc = CmdDesc(
         ('doublet_b_color', Color8Arg),
         ('cp_color', Color8Arg),
         ('membrane_color', Color8Arg),
-        ('write_csv', BoolArg)
+        ('write_csv', BoolArg),
+        ('threed_print', BoolArg)
+
     ],
     synopsis='Generate complete cilia structure with customizable geometry'
 )
@@ -627,7 +635,8 @@ centriolebuild_desc = CmdDesc(
         ('z_offset_end', FloatArg),
         ('triplet_a_color', Color8Arg),
         ('triplet_b_color', Color8Arg),
-        ('triplet_c_color', Color8Arg)
+        ('triplet_c_color', Color8Arg),
+        ('threed_print', BoolArg)
     ],
     synopsis='Generate complete centriole structure with triplet microtubules'
 )
@@ -646,7 +655,8 @@ ciliabuild_from_csv_desc = CmdDesc(
         ('cp_color', Color8Arg),
         ('membrane_color', Color8Arg),
         ('triplet_c_radius', FloatArg), 
-        ('triplet_c_color', Color8Arg)
+        ('triplet_c_color', Color8Arg),
+        ('threed_print', BoolArg)
     ],
     synopsis='Generate a cilia/centriole structure from a template CSV file'
 )
@@ -668,7 +678,8 @@ def _ciliabuild_from_df(session, df,
             membrane_color=default_config.CILIA_MEMBRANE_COLOR,
             # Triplet Parameters (optional - presence determines triplet mode)
             triplet_c_radius=None, 
-            triplet_c_color=None
+            triplet_c_color=None,
+            threed_print=default_config.THREEDPRINT
             ):
     """
     Internal function to render cilia/centriole structures from DataFrame geometry data.
@@ -975,6 +986,32 @@ def _ciliabuild_from_df(session, df,
             session.models.add_group(membrane_surfs, parent=cilia_root, name="Membrane")
             session.logger.info(f"Added membrane")
 
+    # For 3D printing, build a base
+    if threed_print:
+        base_radius = default_config.THREEDPRINT_BASE_RADIUS
+        # Calculate the base position
+        topZ = df['Z'].min() + default_config.CENTRIOLE_Z_OFFSET_END
+        bottomZ = topZ - default_config.THREEDPRINT_BASE_HEIGHT
+        base_centerline = np.array([
+            [0, 0, topZ],
+            [0, 0, bottomZ]
+        ])
+        base_surfs = draw_tubules(
+            session=session,
+            length=None,  # Use full centerline
+            interval=default_config.MAX_INTERVAL,
+            centerline_points=base_centerline,
+            angle=0,
+            radii=[base_radius],
+            shift_distances=[0],
+            length_diffs=None,
+            tubule_names=["Base"],
+            colors=[membrane_color],
+            group_name="Base"
+        )
+        if base_surfs:
+            session.models.add_group(base_surfs, parent=cilia_root, name="Print_Base")
+            session.logger.info(f"Added 3D Print Base")
     
     # Get the model ID and update the name
     model_id = cilia_root.id_string

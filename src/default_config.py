@@ -38,6 +38,10 @@ TEMPLATE_FILE = 'template.csv'
 # Primary cilia template file (contains singlet configuration data)
 PRIMARYCILIA_TEMPLATE = 'primarycilia_template.csv'
 
+# 3D printing base
+THREEDPRINT = False
+THREEDPRINT_BASE_HEIGHT = 350
+THREEDPRINT_BASE_RADIUS = 1800
 
 # ============================================================================
 # CILIA DEFAULTS (9+2 Configuration)
