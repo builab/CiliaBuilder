@@ -13,13 +13,15 @@ Z_MAX_IDX_B_DEFAULT = INITIAL_LENGTH + TRANSITION_LENGTH
 MAX_INTERVAL = getattr(default_config, 'MAX_INTERVAL', 20)
 
 
-def generate_tip_curves(tip_length, cilia_radius, final_radius, interval=MAX_INTERVAL):
+def generate_tip_curves(num_lines, tip_length, cilia_radius, final_radius, interval=MAX_INTERVAL):
     """
     Generate 9 cilia curves centered around the Z axis with tapered tips.
     Uses single cosine interpolation for smooth, monotonic radius decrease.
     
     Parameters:
     -----------
+    num_lines : int
+        Number of doublets
     tip_length : float
         Total length of the tip section
     cilia_radius : float
@@ -32,11 +34,10 @@ def generate_tip_curves(tip_length, cilia_radius, final_radius, interval=MAX_INT
     Returns:
     --------
     list of dict
-        List of 9 curves, each containing:
+        List of num_lines curves, each containing:
         - 'curve': numpy array of shape (n_points, 3) with (x, y, z) coordinates
         - 'control_points': numpy array of 4 control points
     """
-    num_lines = 9
     curves = []
     
     # Segment 1: p1 to p2 (straight section, length = INITIAL_LENGTH)
@@ -51,7 +52,7 @@ def generate_tip_curves(tip_length, cilia_radius, final_radius, interval=MAX_INT
     z_spline = np.linspace(INITIAL_LENGTH, tip_length + INITIAL_LENGTH, n_points_spline)
 
     for i in range(num_lines):
-        angle = (i / num_lines) * 2 * np.pi + np.pi  # Add π to match curve.py
+        angle = (i / num_lines) * 2 * -np.pi + np.pi  # Add π to match curve.py & -np.pi to make direction correct
         
         # Define 4 control points
         p1 = np.array([cilia_radius * np.cos(angle), cilia_radius * np.sin(angle), 0])
@@ -87,6 +88,7 @@ def generate_tip_curves(tip_length, cilia_radius, final_radius, interval=MAX_INT
 
 
 def generate_multiple_tip_lengths_in_memory(
+    num_doublets=9,
     cilia_radius=default_config.CILIA_RADIUS,
     final_radius=default_config.TIP_FINAL_RADIUS,
     tip_length_start=default_config.TIP_INITIAL_LENGTH,
@@ -98,6 +100,8 @@ def generate_multiple_tip_lengths_in_memory(
     
     Parameters:
     -----------
+    num_doublets : int
+        Number of doublets
     cilia_radius : float
         Starting radius of cilia
     final_radius : float
@@ -125,6 +129,7 @@ def generate_multiple_tip_lengths_in_memory(
         print(f"Generating curves for tip_length = {tip_length}...")
         
         curves = generate_tip_curves(
+            num_lines=num_doublets,
             tip_length=tip_length, 
             cilia_radius=cilia_radius, 
             final_radius=final_radius
@@ -167,9 +172,7 @@ def _generate_doublet_rows(curve_data, doublet_number, z_max_idx_b, doublet_shif
 
     # Calculate angle
     if num_doublets:
-        angle = 90 + (360 / num_doublets) * (doublet_number - 1)
-    else:
-        angle = 90 + 40 * (doublet_number - 1)
+        angle = 90 - (360 / num_doublets) * (doublet_number - 1)
 
     # Define constant values
     IDX_A = 1
@@ -302,7 +305,8 @@ def generate_tip_csv(
     tip_length_start = initial_length + transition_length
     
     # Generate multiple tip length variations
-    all_curves_data = generate_multiple_tip_lengths_in_memory( 
+    all_curves_data = generate_multiple_tip_lengths_in_memory(
+        num_doublets, 
         cilia_radius, final_radius,
         tip_length_start, tip_length_end, number_of_steps=10
     )

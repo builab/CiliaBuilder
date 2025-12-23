@@ -178,7 +178,7 @@ def process_cilia_csv(df_scaled, idx_a_list, idx_b_list):
         max_z = df_doublet['Z'].max()
         
         # Set angle
-        angle_value = 90 + (doublet_num - 1) * 40
+        angle_value = 90 - (doublet_num - 1) * 40
         df_doublet['Angle'] = angle_value
         
         # Calculate Z thresholds

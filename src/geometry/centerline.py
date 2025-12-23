@@ -4,32 +4,6 @@ import numpy as np
 from scipy.interpolate import UnivariateSpline
 from ..io import read_2d_csv
 
-
-def _calculate_radial_position(centerline_points, doublet_index, 
-                                total_doublets=9, cilia_radius=875.0):
-    """
-    Calculate angle for a doublet evenly distributed around 360°.
-    
-    Parameters:
-    -----------
-    centerline_points : np.ndarray
-        Centerline points (not used, kept for compatibility)
-    doublet_index : int
-        Index of the doublet (0-based)
-    total_doublets : int
-        Total number of doublets
-    cilia_radius : float
-        Radial distance from centerline
-    
-    Returns:
-    --------
-    tuple
-        (angle in degrees, radius)
-    """
-    angle = (360.0 / total_doublets) * doublet_index
-    return angle, cilia_radius
-
-
 def _generate_straight_centerline(t):
     """
     Generate points for a straight centerline along the Z-axis.
@@ -312,13 +286,11 @@ def generate_cilia_structure(
     # Calculate doublet positions
     doublets = []
     for i in range(num_doublets):
-        angle, shift_dist = _calculate_radial_position(
-            centerline, i, num_doublets, cilia_radius
-        )
+        angle = -360 / num_doublets * i # Correct doublet order by using -
         doublets.append({
             'index': i,
             'angle': angle,
-            'shift_distance': shift_dist,
+            'shift_distance': cilia_radius,
             'name': f"doublet_{i+1}"
         })
     
