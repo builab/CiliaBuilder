@@ -374,6 +374,7 @@ class CiliaBuilder(ToolInstance):
         # Check for template types that require a file input box
         is_file_template = line_type in ('2Dtemplate', '3Dtemplate') 
         is_tip = line_type == 'tip'
+        is_primarycilia = line_type == 'primarycilia'
         
         # 1. Curve Inputs
         self.curve_radius_label.setVisible(is_curve)
@@ -392,6 +393,15 @@ class CiliaBuilder(ToolInstance):
         self.tip_length_input.setVisible(is_tip)
         self.tip_length_label.setEnabled(is_tip)
         self.tip_length_input.setEnabled(is_tip)
+        
+        # 5. Primary Cilia - Lock Number of Doublets to 9
+        if is_primarycilia:
+            self.num_units_input.setText("9")
+            self.num_units_input.setReadOnly(True)
+            self.num_units_input.setStyleSheet("background-color: #e0e0e0; color: #606060;")
+        else:
+            self.num_units_input.setReadOnly(False)
+            self.num_units_input.setStyleSheet("")
 
 
     def _parse_color(self, color_string):
