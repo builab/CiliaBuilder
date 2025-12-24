@@ -8,7 +8,7 @@ ChimeraX Tool to build 3D models of cilia and centriole.
 
 ### Inside ChimeraX
 
-From *ChimeraX > Tools > More Tools** and install *CiliaBuilder**
+From *ChimeraX > Tools > More Tools* and install *CiliaBuilder*
 
 ### By downloading directly from here
 
