@@ -6,18 +6,13 @@ ChimeraX Tool to build 3D models of cilia and centriole.
 
 ## Installation
 
-Download the repository or git clone and install **CiliaBuilder**:
+From ChimeraX > Tools > More Tools and install CiliaBuilder
 
-Download or git clone from Terminal
+If pandas or scipy is not installed automatically, then go to ChimeraX command line box and type
+
 ```bash
-git clone https://github.com/builab/CiliaBuilder.git
-```
-
-If you download, then unzip
-
-Open ChimeraX and type this in **ChimeraX commandline box** (Tested to be compatible with ChimeraX 1.7 and up to 1.10 but not tested with earlier or later version)
-```bash
-devel install [path_to_CiliaBuilder_folder]
+pip install pandas
+pip install scipy
 ```
 
 ## Interface usage
