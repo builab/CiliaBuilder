@@ -90,7 +90,7 @@ centriolebuild length 5000 num_triplets 12 centriole_radius 1200
 
 Use this [Colab Notebook](https://colab.research.google.com/drive/18XwT8Y2a-_uJxXedFMNic1vg3ZmYLNjr?usp=sharing) to convert your image to 2D template
 
-[Example image](example/cilia_image_.png) to test
+[Example image](example/cilia_image.png) to test
 
 
 
