@@ -28,7 +28,7 @@ Open *Tools > High-order structure > Cilia Builder*
 
 ### Video Tutorial
 
-[Installation Tutorial](https://youtu.be/OEJJZ-qedoY)
+[Installation Tutorial](https://youtu.be/OEJJZ-qedoY){:target="_blank"}
 
 
 ## Commandline usage
