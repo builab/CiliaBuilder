@@ -28,8 +28,7 @@ Open *Tools > High-order structure > Cilia Builder*
 
 ### Video Tutorial
 
-<video src="[YOUR_VIDEO_URL.mp4](https://youtu.be/SJHoQg4RiXQ)" controls width="600"></video>
-
+<iframe width="560" height="315" src="https://www.youtube.com/embed/SJHoQg4RiXQ?si=2MDBfKsDwMy0bMRy" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe>
 
 Other videos
 
