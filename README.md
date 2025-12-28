@@ -28,7 +28,15 @@ Open *Tools > High-order structure > Cilia Builder*
 
 ### Video Tutorial
 
-<a href="https://youtu.be/OEJJZ-qedoY" target="_blank" rel="noopener noreferrer">Installation Tutorial Video</a>
+<video src="[YOUR_VIDEO_URL.mp4](https://youtu.be/SJHoQg4RiXQ)" controls width="600"></video>
+
+
+Other videos
+
+* [Installation](https://youtu.be/OEJJZ-qedoY)
+* [Build Cilia](https://youtu.be/SJHoQg4RiXQ)
+* [Build Centriole](https://youtu.be/JT0-txlxbJI)
+* [Advanced - Build Cilia using 2D template](https://youtu.be/hegsta70xZw)
 
 
 
