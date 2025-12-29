@@ -36,16 +36,16 @@ def _calculate_local_frame(tangent):
     return normal, binormal
 
 
-def _create_sphere_geometry(center, radius=10.0, segments_u=32, segments_v=16):
+def _create_ellipsoid_geometry(center, radii, segments_u, segments_v):
     """
-    Generate vertices and triangles for a sphere using spherical coordinates.
+    Create vertices and triangles for an ellipsoid.
     
     Parameters:
     -----------
-    center : array-like
+    center : ndarray
         Center point (x, y, z)
-    radius : float
-        Sphere radius
+    radii : ndarray
+        Semi-axes lengths (rx, ry, rz)
     segments_u : int
         Number of longitudinal segments
     segments_v : int
@@ -53,42 +53,50 @@ def _create_sphere_geometry(center, radius=10.0, segments_u=32, segments_v=16):
     
     Returns:
     --------
-    tuple
-        (vertices, triangles) as numpy arrays
+    vertices : ndarray
+        Vertex positions (N, 3)
+    triangles : ndarray
+        Triangle indices (M, 3)
     """
-    center = np.array(center)
-    
-    # Angles for latitude (phi) and longitude (theta)
-    phi = np.linspace(0, np.pi, segments_v + 1)
-    theta = np.linspace(0, 2 * np.pi, segments_u, endpoint=False)
-
     vertices = []
     
-    # Generate vertices
-    for p in phi:
-        for t in theta:
-            x = center[0] + radius * np.sin(p) * np.cos(t)
-            y = center[1] + radius * np.sin(p) * np.sin(t)
-            z = center[2] + radius * np.cos(p)
+    # Generate vertices using spherical coordinates, scaled by radii
+    for i in range(segments_v + 1):
+        theta = np.pi * i / segments_v  # Latitude angle (0 to π)
+        sin_theta = np.sin(theta)
+        cos_theta = np.cos(theta)
+        
+        for j in range(segments_u):
+            phi = 2 * np.pi * j / segments_u  # Longitude angle (0 to 2π)
+            sin_phi = np.sin(phi)
+            cos_phi = np.cos(phi)
+            
+            # Parametric equation for ellipsoid
+            x = center[0] + radii[0] * sin_theta * cos_phi
+            y = center[1] + radii[1] * sin_theta * sin_phi
+            z = center[2] + radii[2] * cos_theta
+            
             vertices.append([x, y, z])
-
+    
     vertices = np.array(vertices, dtype=np.float32)
     
     # Generate triangles
     triangles = []
-    v_ring = segments_u
-    
     for i in range(segments_v):
         for j in range(segments_u):
-            p1 = i * v_ring + j
-            p2 = i * v_ring + (j + 1) % v_ring
-            p3 = (i + 1) * v_ring + (j + 1) % v_ring
-            p4 = (i + 1) * v_ring + j
+            # Current vertex indices
+            current = i * segments_u + j
+            next_u = i * segments_u + (j + 1) % segments_u
+            next_v = (i + 1) * segments_u + j
+            next_both = (i + 1) * segments_u + (j + 1) % segments_u
             
-            triangles.append([p1, p4, p3])
-            triangles.append([p1, p3, p2])
-
-    return vertices, np.array(triangles, dtype=np.int32)
+            # Two triangles per quad
+            triangles.append([current, next_v, next_u])
+            triangles.append([next_u, next_v, next_both])
+    
+    triangles = np.array(triangles, dtype=np.int32)
+    
+    return vertices, triangles
 
 
 def _create_tube_geometry(path_points, radius=10.0, segments=16, capped=True):
@@ -181,61 +189,86 @@ def _create_tube_geometry(path_points, radius=10.0, segments=16, capped=True):
     triangles = np.array(triangles, dtype=np.int32)
     
     return vertices, triangles
+    
 
-
-def _create_disk_geometry(center, radius=10.0, segments=32, frame=None):
+def _create_ellipsoid_cap_geometry(center, radius_xy, radius_z, segments_u, segments_v, hemisphere='lower'):
     """
-    Generate vertices and triangles for a flat circular disk.
+    Create vertices and triangles for an ellipsoid hemisphere cap.
     
     Parameters:
     -----------
-    center : array-like
-        Center point of the disk
-    radius : float
-        Disk radius
-    segments : int
-        Number of segments around circumference
-    frame : tuple, optional
-        (normal, binormal) vectors defining disk orientation
+    center : ndarray
+        Center point of the cap (where it attaches to cylinder)
+    radius_xy : float
+        Radius in X and Y directions (matches cylinder radius)
+    radius_z : float
+        Radius in Z direction (e.g., radius/2 for flattened cap)
+    segments_u : int
+        Number of longitudinal segments
+    segments_v : int
+        Number of latitudinal segments
+    hemisphere : str
+        'lower' for bottom cap (negative Z), 'upper' for top cap (positive Z)
     
     Returns:
     --------
-    tuple
-        (vertices, triangles) as numpy arrays
+    vertices : ndarray
+        Vertex positions (N, 3)
+    triangles : ndarray
+        Triangle indices (M, 3)
     """
-    center = np.array(center)
+    vertices = []
     
-    if frame is None:
-        normal = np.array([1.0, 0.0, 0.0])
-        binormal = np.array([0.0, 1.0, 0.0])
-    else:
-        normal, binormal = frame
-        
-    # Generate vertices
-    theta = np.linspace(0, 2*np.pi, segments, endpoint=False)
-    vertices = [center]  # Center point at index 0
+    # Determine theta range based on hemisphere
+    if hemisphere == 'lower':
+        theta_start = np.pi / 2  # Equator
+        theta_end = np.pi         # South pole
+        z_offset = -radius_z      # Offset center down by radius_z
+    else:  # 'upper'
+        theta_start = 0           # North pole
+        theta_end = np.pi / 2     # Equator
+        z_offset = radius_z       # Offset center up by radius_z
     
-    # Outer circle vertices
-    for angle in theta:
-        x = radius * np.cos(angle)
-        y = radius * np.sin(angle)
-        vertex = center + x * normal + y * binormal
-        vertices.append(vertex)
+   
+    # Generate vertices using spherical coordinates, scaled by radii
+    for i in range(segments_v + 1):
+        # Map i to theta range
+        t = i / segments_v
+        theta = theta_start + t * (theta_end - theta_start)
+        sin_theta = np.sin(theta)
+        cos_theta = np.cos(theta)
         
+        for j in range(segments_u):
+            phi = 2 * np.pi * j / segments_u
+            sin_phi = np.sin(phi)
+            cos_phi = np.cos(phi)
+            
+            # Parametric equation for ellipsoid
+            x = center[0] + radius_xy * sin_theta * cos_phi
+            y = center[1] + radius_xy * sin_theta * sin_phi
+            z = center[2] + radius_z * cos_theta
+            
+            vertices.append([x, y, z])
+    
     vertices = np.array(vertices, dtype=np.float32)
     
-    # Create triangles (fan pattern from center)
+    # Generate triangles
     triangles = []
-    center_idx = 0
+    for i in range(segments_v):
+        for j in range(segments_u):
+            current = i * segments_u + j
+            next_u = i * segments_u + (j + 1) % segments_u
+            next_v = (i + 1) * segments_u + j
+            next_both = (i + 1) * segments_u + (j + 1) % segments_u
+            
+            triangles.append([current, next_v, next_u])
+            triangles.append([next_u, next_v, next_both])
     
-    for i in range(segments):
-        v1 = i + 1
-        v2 = (i + 1) % segments + 1
-        triangles.append([center_idx, v1, v2])
-        
-    return vertices, np.array(triangles, dtype=np.int32)
+    triangles = np.array(triangles, dtype=np.int32)
     
-
+    return vertices, triangles
+    
+    
 def _create_ring_cap_geometry(center, direction, inner_radius, outer_radius, segments=32):
     """
     Create cylindrical ring (annulus) cap geometry.
@@ -461,25 +494,25 @@ def generate_tube_surface(session, path_points, radius=10.0, segments=16,
         session.models.add([surf])
     
     return surf
-    
-    
-def generate_sphere_surface(session, center=(0.0, 0.0, 0.0), radius=10.0, segments_u=32, segments_v=16,
-                            color=(255, 255, 0, 255), name="sphere", add_to_session=True):
+       
+
+def generate_ellipsoid_surface(session, center=(0.0, 0.0, 0.0), radii=(10.0, 8.0, 6.0), segments_u=32, segments_v=16,
+                               color=(255, 255, 0, 255), name="ellipsoid", add_to_session=True):
     """
-    Generate a sphere surface model for a visualization session (replicates tube structure).
+    Generate an ellipsoid surface model for a visualization session.
     
     Parameters:
     -----------
     session : ChimeraX session
         Session object
     center : tuple
-        Center of the sphere
-    radius : float
-        Sphere radius
+        Center of the ellipsoid (x, y, z)
+    radii : tuple
+        Semi-axes lengths (rx, ry, rz) along x, y, z axes
     segments_u : int
-        Number of circumferential segments
+        Number of longitudinal segments
     segments_v : int
-        Number of circumferential segments
+        Number of latitudinal segments
     color : tuple
         RGBA color (0-255)
     name : str
@@ -493,19 +526,23 @@ def generate_sphere_surface(session, center=(0.0, 0.0, 0.0), radius=10.0, segmen
         Created surface model
     """
     center = np.array(center)
-
-    # Create geometry
-    vertices, triangles = create_sphere_geometry(center, radius, segments_u, segments_v)
+    radii = np.array(radii)
     
-    # Check for valid geometry (always valid for sphere, but follows tube structure)
+    # Create geometry
+    vertices, triangles = _create_ellipsoid_geometry(center, radii, segments_u, segments_v)
+    
+    # Check for valid geometry
     if len(vertices) == 0:
         session.logger.warning(f"Skipping surface creation for '{name}': No vertices generated.")
         return None
     
-    # Calculate normals (optimized for sphere: normal is the normalized vector from center to vertex)
-    # The 'calculate_vertex_normals' helper is not needed
+    # Calculate normals for ellipsoid
+    # For an ellipsoid, the normal at point (x,y,z) is proportional to (x/rx^2, y/ry^2, z/rz^2)
     vectors_from_center = vertices - center
-    normals = vectors_from_center / np.linalg.norm(vectors_from_center, axis=1)[:, np.newaxis]
+    # Scale by inverse square of radii
+    normals_unnormalized = vectors_from_center / (radii ** 2)
+    # Normalize
+    normals = normals_unnormalized / np.linalg.norm(normals_unnormalized, axis=1)[:, np.newaxis]
     
     # Create surface model
     surf = Surface(name, session)
@@ -517,19 +554,19 @@ def generate_sphere_surface(session, center=(0.0, 0.0, 0.0), radius=10.0, segmen
     
     # Add to session if requested
     if add_to_session:
-        # Assumes session.models is a list-like object that accepts new models
         session.models.add([surf])
     
     return surf
-    
-    
+
+        
 def generate_capsule_surface(session, center=(0.0, 0.0, 0.0), capsule_length=25.0, radius=10.0, 
                              segments=32, color=(255, 255, 0, 255), name="capsule", 
                              flat_end_z='low', add_to_session=True):
     """
     Generate a capsule surface model (cylinder with two hemispherical caps) for cap complex
-    in ChimeraX, centered around the Z-axis, with an option for one end to be flat.
-        Parameters:
+    in ChimeraX, centered around the Z-axis.
+    
+    Parameters:
     -----------
     session : ChimeraX session
         Session object
@@ -545,10 +582,13 @@ def generate_capsule_surface(session, center=(0.0, 0.0, 0.0), capsule_length=25.
         RGBA color (0-255)
     name : str
         Surface name
-    flat_end_z : str
-        Kinds of end 'low', 'high' or 'both'
+    flat_end_z : str or None
+        Which end(s) to flatten: 'low', 'high', 'both', or None
+        - None: Both ends are spherical hemispheres (rx=ry=rz=radius)
+        - 'low'/'high'/'both': Specified end(s) are flattened ellipsoids (rx=ry=radius, rz=radius/2)
     add_to_session : bool
         Whether to add to session immediately
+    
     Returns:
     --------
     Surface or None
@@ -557,23 +597,54 @@ def generate_capsule_surface(session, center=(0.0, 0.0, 0.0), capsule_length=25.
     
     center = np.array(center)
     
-    # --- 1. Calculate dimensions and centers ---
+    # --- 1. Validate capsule length based on end cap types ---
     
-    if capsule_length < 2 * radius:
-        session.logger.warning(f"Capsule length ({capsule_length}) is less than 2*radius ({2*radius}). Generating a sphere.")
-        # Assuming generate_sphere_surface takes segments_v=segments//2
-        return generate_sphere_surface(session, center, radius, segments, segments // 2, color, name, add_to_session)
-
-    cylinder_centerline_length = capsule_length - 2 * radius
-    half_cyl_centerline = cylinder_centerline_length / 2.0
+    # Determine minimum length based on cap configuration
+    if flat_end_z is None:
+        # Both ends spherical: need 2*radius (full sphere height)
+        min_length = 2 * radius
+        cap_type_desc = "spherical hemispheres"
+    elif flat_end_z == 'both':
+        # Both ends flattened: need 2*(radius/2) = radius
+        min_length = radius
+        cap_type_desc = "flattened ellipsoids"
+    elif flat_end_z in ['low', 'high']:
+        # One spherical (radius), one flattened (radius/2): need 1.5*radius
+        min_length = 1.5 * radius
+        cap_type_desc = "mixed (one spherical, one flattened)"
+    else:
+        session.logger.error(f"Invalid flat_end_z value: '{flat_end_z}'. Must be None, 'low', 'high', or 'both'.")
+        return None
     
-    # Sphere centers
-    sphere_center_a = center + np.array([0, 0, -capsule_length / 2.0 + radius]) 
-    sphere_center_b = center + np.array([0, 0, capsule_length / 2.0 - radius])  
+    if capsule_length < min_length:
+        session.logger.error(
+            f"Capsule length ({capsule_length:.2f}) is less than minimum required length "
+            f"({min_length:.2f}) for {cap_type_desc} caps. Cannot create capsule."
+        )
+        return None
     
-    # Cylinder Path Points (Cap attachment points)
-    cyl_start_z = center[2] - half_cyl_centerline
-    cyl_end_z = center[2] + half_cyl_centerline
+    # --- 2. Calculate dimensions and centers ---
+    
+    # Determine cap heights
+    if flat_end_z is None:
+        cap_height_low = radius
+        cap_height_high = radius
+    elif flat_end_z == 'both':
+        cap_height_low = radius / 2.0
+        cap_height_high = radius / 2.0
+    elif flat_end_z == 'low':
+        cap_height_low = radius / 2.0
+        cap_height_high = radius
+    else:  # flat_end_z == 'high'
+        cap_height_low = radius
+        cap_height_high = radius / 2.0
+    
+    # Calculate cylinder length
+    cylinder_centerline_length = capsule_length - cap_height_low - cap_height_high
+    
+    # Cylinder endpoints (cap attachment points)
+    cyl_start_z = center[2] - cylinder_centerline_length / 2.0
+    cyl_end_z = center[2] + cylinder_centerline_length / 2.0
     cap_center_low_z = np.array([center[0], center[1], cyl_start_z])
     cap_center_high_z = np.array([center[0], center[1], cyl_end_z])
     
@@ -584,53 +655,43 @@ def generate_capsule_surface(session, center=(0.0, 0.0, 0.0), capsule_length=25.
         start_point=cap_center_low_z
     )
     
-    # --- Calculate cylinder frame (TNB) for seamless flat caps ---
-    path_tangent = path_points[1] - path_points[0]
-    cylinder_frame = _calculate_local_frame(path_tangent)
-    
-    # --- 2. Generate Geometries ---
+    # --- 3. Generate Geometries ---
     
     geom_list = []
     segments_v = max(4, segments // 2)
     
     # Low Z End Cap (A)
-    if flat_end_z == 'low':
-        vertices_a, triangles_a = _create_disk_geometry(
-            cap_center_low_z, 
-            radius, 
-            segments, 
-            frame=cylinder_frame # Use cylinder's frame for seamless connection
-        )
-    else:
-        # Rounded sphere cap
-        vertices_a, triangles_a = _create_sphere_geometry(
-            sphere_center_a, radius, segments_u=segments, segments_v=segments_v
-        )
-        
+    radius_z_low = radius / 2.0 if (flat_end_z == 'low' or flat_end_z == 'both') else radius
+    
+    vertices_a, triangles_a = _create_ellipsoid_cap_geometry(
+        cap_center_low_z, 
+        radius, 
+        radius_z_low,
+        segments_u=segments, 
+        segments_v=segments_v,
+        hemisphere='lower'
+    )
     geom_list.append((vertices_a, triangles_a))
     
     # High Z End Cap (B)
-    if flat_end_z == 'high':
-        vertices_b, triangles_b = _create_disk_geometry(
-            cap_center_high_z, 
-            radius, 
-            segments, 
-            frame=cylinder_frame # Use cylinder's frame for seamless connection
-        )
-    else:
-        # Rounded sphere cap
-        vertices_b, triangles_b = _create_sphere_geometry(
-            sphere_center_b, radius, segments_u=segments, segments_v=segments_v
-        )
-
+    radius_z_high = radius / 2.0 if (flat_end_z == 'high' or flat_end_z == 'both') else radius
+    
+    vertices_b, triangles_b = _create_ellipsoid_cap_geometry(
+        cap_center_high_z, 
+        radius, 
+        radius_z_high,
+        segments_u=segments, 
+        segments_v=segments_v,
+        hemisphere='upper'
+    )
     geom_list.append((vertices_b, triangles_b))
     
     # Generate Cylinder Body
     if cylinder_centerline_length > 0.0:
         vertices_cyl, triangles_cyl = _create_tube_geometry(path_points, radius, segments, capped=False)
         geom_list.append((vertices_cyl, triangles_cyl))
-
-    # --- 3. Combine Geometries and Create Surface ---
+    
+    # --- 4. Combine Geometries and Create Surface ---
     
     vertices, triangles = _combine_geometries(geom_list)
     
@@ -653,7 +714,10 @@ def generate_capsule_surface(session, center=(0.0, 0.0, 0.0), capsule_length=25.
     if add_to_session:
         session.models.add([surf])
         
-    session.logger.info(f"Created capsule \"{name}\" (Total Length: {capsule_length}, Radius: {radius}, Flat End: {flat_end_z})")
+    session.logger.info(
+        f"Created capsule \"{name}\" (Total Length: {capsule_length:.2f}, Radius: {radius:.2f}, "
+        f"Cylinder Length: {cylinder_centerline_length:.2f}, Flat End: {flat_end_z})"
+    )
     
     return surf
 

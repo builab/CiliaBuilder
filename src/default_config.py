@@ -40,8 +40,8 @@ PRIMARYCILIA_TEMPLATE = 'primarycilia_template.csv'
 
 # 3D printing base
 THREEDPRINT = False
-THREEDPRINT_BASE_HEIGHT = 350
-THREEDPRINT_BASE_RADIUS = 1800
+THREEDPRINT_BASE_HEIGHT = 300
+THREEDPRINT_BASE_RADIUS = 1700
 
 # ============================================================================
 # CILIA DEFAULTS (9+2 Configuration)
@@ -74,7 +74,7 @@ CILIA_CP_DOUBLET_LENGTH_DIFF = 300.0  # Central pair extends this much beyond do
 # --- Central Pair Geometry ---
 CILIA_CP_RADIUS = 125.0  # Outer radius of C1 and C2 singlet tubules
 CILIA_CP_SHIFT = 160.0  # Distance of each central tubule from the central axis
-CILIA_CP_BRIDGE_RADIUS = 30 # Radius of rung linking C1 & C2
+CILIA_CP_BRIDGE_RADIUS = 40 # Radius of rung linking C1 & C2
 CILIA_CP_RUNG_PERIODICITY = 320 # Run periodicity 160 or 320
 
 # --- Tip Geometry ---
@@ -84,7 +84,7 @@ TIP_TRANSITION_LENGTH = 1500  # Length over which taper occurs
 TIP_INITIAL_LENGTH = 300  # Straight section before taper begins
 TIP_LENGTH = 5000  # Total length of tip structure
 TIP_CAP_RADIUS = CILIA_CP_RADIUS + CILIA_CP_SHIFT + 100  # Radius of terminal cap (385 Å)
-TIP_CAP_LENGTH = TIP_CAP_RADIUS * 2.5  # Length of terminal cap (962.5 Å)
+TIP_CAP_LENGTH = TIP_CAP_RADIUS * 1.6  # Length of terminal cap (962.5 Å)
 
 # --- Colors (RGBA: 0-255) ---
 CILIA_DOUBLET_A_COLOR = (100, 100, 255, 255)  # Blue for A-tubules
