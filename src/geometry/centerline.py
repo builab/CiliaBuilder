@@ -233,7 +233,7 @@ def generate_cilia_structure(
     template_file='template.csv',
     num_doublets=9, 
     cilia_radius=875.0,
-    max_interval=20.0
+    interval=20.0
 ):
     """
     Generate complete cilia structure with centerline and doublet positions.
@@ -256,7 +256,7 @@ def generate_cilia_structure(
         Number of doublet microtubules
     cilia_radius : float
         Radial distance from centerline to doublets
-    max_interval : float
+    interval : float
         Maximum spacing between centerline points
     
     Returns:
@@ -270,7 +270,7 @@ def generate_cilia_structure(
         - 'length': float
         - 'cilia_radius': float
     """
-    num_points = int(length / max_interval) + 1
+    num_points = int(length / interval) + 1
 
     # Generate centerline
     centerline = generate_centerline_points(

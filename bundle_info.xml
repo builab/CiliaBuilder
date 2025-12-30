@@ -6,7 +6,7 @@ will be displayed without the ChimeraX- prefix.
 -->
 
 <BundleInfo name="ChimeraX-CiliaBuilder"
-	    version="1.0.7" package="chimerax.ciliabuilder"
+	    version="1.0.9" package="chimerax.ciliabuilder"
   	    minSessionVersion="1" maxSessionVersion="1">
 
   <!-- Additional information about bundle source -->
@@ -32,7 +32,7 @@ will be displayed without the ChimeraX- prefix.
     <Dependency name="ChimeraX-UI" version=">=1.7"/>
     <Dependency name="numpy" version=">=1.26.4"/>
     <Dependency name="pandas" version=">=2.1.4"/>
-    <Dependency name="scipy" />
+    <Dependency name="scipy" version=">1.14"/>
   </Dependencies>
 
   <!-- Non-Python files that are part of package -->

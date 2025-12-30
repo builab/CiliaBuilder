@@ -78,6 +78,14 @@ def ciliabuild(session,
 
     centerline_type = type 
     csv_filename = 'cilia.csv'
+    
+    # Change the default interval based on cilia length to reduce computation
+    if length <= 20000:
+        adaptive_interval = default_config.MAX_INTERVAL
+    elif length <= 100000:
+        adaptive_interval = 2*default_config.MAX_INTERVAL
+    else:
+        adaptive_interval = 3*default_config.MAX_INTERVAL
 
     
     if centerline_type == 'tip':
@@ -94,7 +102,7 @@ def ciliabuild(session,
             cp_shift=cp_shift,
             membrane_radius=membrane_radius,
             membrane_fraction=membrane_fraction,
-            max_interval=default_config.MAX_INTERVAL
+            interval=adaptive_interval
         )
         # Only turn on writing by default for this
         write_csv = True
@@ -110,7 +118,7 @@ def ciliabuild(session,
             cilia_length=length,
             membrane_radius=membrane_radius,
             membrane_fraction=membrane_fraction,
-            interval=default_config.MAX_INTERVAL
+            interval=adaptive_interval
         )
         # Only turn on writing by default for this
         write_csv = True
@@ -128,7 +136,8 @@ def ciliabuild(session,
             sine_amplitude=sine_amplitude,
             template_file=template_file,
             num_doublets=num_doublets,
-            cilia_radius=cilia_radius
+            cilia_radius=cilia_radius,
+            interval=adaptive_interval
         )
         
         # Build DataFrame from structure
@@ -350,6 +359,14 @@ def centriolebuild(session,
     
     centerline_type = type
     
+    # Change the default interval based on cilia length to reduce computation
+    if length <= 20000:
+        adaptive_interval = default_config.MAX_INTERVAL
+    elif length <= 100000:
+        adaptive_interval = 2*default_config.MAX_INTERVAL
+    else:
+        adaptive_interval = 3*default_config.MAX_INTERVAL
+    
     session.logger.info(f"Generating centriole structure with {centerline_type} centerline...")
     
     # Calculate centriole structure points using the same function
@@ -361,7 +378,8 @@ def centriolebuild(session,
         sine_amplitude=sine_amplitude,
         template_file=default_config.TEMPLATE_FILE,
         num_doublets=num_triplets,  # Reuse parameter name
-        cilia_radius=centriole_radius
+        cilia_radius=centriole_radius,
+        interval=adaptive_interval
     )
     
     # --- Centriole Alignment Shift to match Z_offset_end ---
@@ -803,6 +821,13 @@ def _ciliabuild_from_df(session, df,
         session.logger.error(f"DataFrame must contain columns: {REQUIRED_COLUMNS}")
         return None
         
+    # Determine the interval from the data
+    doublet_1 = df[df['DoubletNumber'] == 1]
+    adaptive_interval = abs(doublet_1.iloc[1]['Z'] - doublet_1.iloc[0]['Z'])
+    
+    print(f"Adaptive interval is {adaptive_interval}")
+        
+        
     # --- GLOBAL STRUCTURE TYPE DETERMINATION ---
     has_c_tubule_column = 'Idx_C' in df.columns
     is_triplet_structure = False
@@ -856,7 +881,7 @@ def _ciliabuild_from_df(session, df,
         a_surfs = draw_tubules(
             session=session,
             length=None,
-            interval=default_config.MAX_INTERVAL,
+            interval=adaptive_interval,
             centerline_points=unit_centerline_a,
             angle=angle,
             radii=[doublet_a_radius],
@@ -875,7 +900,7 @@ def _ciliabuild_from_df(session, df,
             b_surfs = draw_tubules(
                 session=session,
                 length=None,
-                interval=default_config.MAX_INTERVAL,
+                interval=adaptive_interval,
                 centerline_points=unit_centerline_b,
                 angle=angle,
                 radii=[doublet_b_radius],
@@ -901,7 +926,7 @@ def _ciliabuild_from_df(session, df,
                 c_surfs = draw_tubules(
                     session=session,
                     length=None,
-                    interval=default_config.MAX_INTERVAL,
+                    interval=adaptive_interval,
                     centerline_points=unit_centerline_c,
                     angle=angle,
                     radii=[triplet_c_radius],
@@ -934,7 +959,7 @@ def _ciliabuild_from_df(session, df,
         cp_surfs = draw_tubules(
             session=session,
             length=None,  # Use full centerline
-            interval=default_config.MAX_INTERVAL,
+            interval=adaptive_interval,
             centerline_points=cp_centerline,
             angle=0,
             radii=[cp_radius, cp_radius],
@@ -999,7 +1024,7 @@ def _ciliabuild_from_df(session, df,
         base_surfs = draw_tubules(
             session=session,
             length=None,  # Use full centerline
-            interval=default_config.MAX_INTERVAL,
+            interval=adaptive_interval,
             centerline_points=base_centerline,
             angle=0,
             radii=[base_radius],

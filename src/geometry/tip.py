@@ -29,7 +29,7 @@ def generate_tip_curves(num_lines, tip_length, cilia_radius, final_radius, inter
     final_radius : float
         Radius at Z=tip_length (final radius)
     interval : float
-        Maximum spacing between points (default: MAX_INTERVAL)
+        Spacing between points (default: MAX_INTERVAL)
     
     Returns:
     --------
@@ -336,7 +336,7 @@ def generate_cilia_with_tip(
     cp_shift=default_config.CILIA_CP_SHIFT,
     membrane_radius=default_config.CILIA_MEMBRANE_RADIUS,
     membrane_fraction=default_config.CILIA_MEMBRANE_FRACTION,
-    max_interval=MAX_INTERVAL
+    interval=MAX_INTERVAL
 ):
     """
     Generate complete cilia structure with straight base section and tapered tip.
@@ -374,8 +374,8 @@ def generate_cilia_with_tip(
         Membrane radius (not currently used in geometry)
     membrane_fraction : float
         Fraction of base covered by membrane (0-1)
-    max_interval : float
-        Maximum spacing between points
+    interval : float
+        Spacing between points
         
     Returns:
     --------
@@ -436,7 +436,7 @@ def generate_cilia_with_tip(
         b_shift = first_point['B_Shift']
         
         # Generate base points
-        n_points = int(np.ceil((cilia_length - initial_length) / max_interval)) + 1
+        n_points = int(np.ceil((cilia_length - initial_length) / interval)) + 1
         z_coords = np.linspace(0, cilia_length - initial_length, n_points)
         
         for i, z in enumerate(z_coords):
@@ -466,7 +466,7 @@ def generate_cilia_with_tip(
     # Step 5: Add central pair
     print("\n5. Generating central pair...")
     total_length = cilia_length + tip_length
-    n_cp_points = int(np.ceil(total_length / max_interval)) + 1
+    n_cp_points = int(np.ceil(total_length / interval)) + 1
     cp_z_coords = np.linspace(0, total_length, n_cp_points)
     
     cp_data = []
@@ -491,7 +491,7 @@ def generate_cilia_with_tip(
     # Step 7: Add membrane
     print("\n6. Generating membrane...")
     total_membrane_length = membrane_fraction * cilia_length
-    n_membrane_points = int(np.ceil(total_membrane_length / max_interval)) + 1
+    n_membrane_points = int(np.ceil(total_membrane_length / interval)) + 1
     membrane_z_coords = np.linspace(0, total_membrane_length, n_membrane_points)
     
     membrane_data = []
