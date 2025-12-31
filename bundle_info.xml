@@ -42,7 +42,7 @@ will be displayed without the ChimeraX- prefix.
     <DataFile>docs/user/commands/ciliabuild_from_csv.html</DataFile>
     <DataFile>docs/user/general/ciliabuilder_tutorial.html</DataFile>
     <DataFile>docs/user/tools/ciliabuilder.html</DataFile>
-    <DataFile>docs/user/CiliaBuilder-icon.png</DataFile>
+    <DataFile>docs/user/CiliaBuilder-icon.svg</DataFile>
     <DataFile>geometry/primarycilia_template.csv</DataFile>
     <DataFile>geometry/primarycilia_good.csv</DataFile>
 
