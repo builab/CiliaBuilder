@@ -824,9 +824,7 @@ def _ciliabuild_from_df(session, df,
     # Determine the interval from the data
     doublet_1 = df[df['DoubletNumber'] == 1]
     adaptive_interval = abs(doublet_1.iloc[1]['Z'] - doublet_1.iloc[0]['Z'])
-    
-    print(f"Adaptive interval is {adaptive_interval}")
-        
+            
         
     # --- GLOBAL STRUCTURE TYPE DETERMINATION ---
     has_c_tubule_column = 'Idx_C' in df.columns

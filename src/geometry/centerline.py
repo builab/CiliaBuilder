@@ -2,6 +2,7 @@
 
 import numpy as np
 from scipy.interpolate import UnivariateSpline
+from scipy.interpolate import splprep, splev
 from ..io import read_2d_csv
 
 def _generate_straight_centerline(t):
@@ -27,6 +28,8 @@ def _generate_straight_centerline(t):
 def _generate_curved_centerline(t, length, curve_radius):
     """
     Generate points for a curved centerline (arc) in the X-Z plane.
+    Uses true arc-length parameterization.
+    Arc length s = R * theta => theta = s / R.
     
     Parameters:
     -----------
@@ -41,15 +44,13 @@ def _generate_curved_centerline(t, length, curve_radius):
     --------
     tuple
         (x, y, z) coordinate arrays
-    """
+    """    
     if curve_radius == 0:
-        raise ValueError("curve_radius cannot be zero for 'curve' type")
+        raise ValueError("curve_radius cannot be zero")
     
-    # Arc length s = R * θ => θ = s / R
-    total_angle_rad = length / curve_radius
-    theta = (t / length) * total_angle_rad
+    # theta = s / R. Since t is our arc length parameter [0, length]:
+    theta = t / curve_radius
     
-    # Curve starts at origin and extends into positive X-Z quadrant
     x_center = curve_radius * (1 - np.cos(theta))
     y_center = np.zeros_like(t)
     z_center = curve_radius * np.sin(theta)
@@ -58,8 +59,7 @@ def _generate_curved_centerline(t, length, curve_radius):
 
 def _generate_sinusoidal_centerline(t, length, sine_frequency, sine_amplitude):
     """
-    Generate points for a sinusoidal centerline with smooth lower transition.
-    
+    Improved sinusoidal generation using a quintic taper for C2 continuity.
     Creates a centerline with:
     - Straight section at the base
     - Smooth transition region
@@ -81,48 +81,24 @@ def _generate_sinusoidal_centerline(t, length, sine_frequency, sine_amplitude):
     tuple
         (x, y, z) coordinate arrays
     """
-    num_points = len(t)
-    CILIA_RADIUS_REF = 1000.0
+    # Transition happens over the first 15% of the length
+    transition_end = length * 0.15
     
-    # Calculate Z-offset to ensure smooth start at Z=0
-    angle_rad = np.arctan2(sine_amplitude, length / (sine_frequency * 4))
-    z_offset = np.cos(np.pi/2 - angle_rad) * (2 * CILIA_RADIUS_REF)
-    straight_length = z_offset / 2
+    # 1. Calculate the raw sine wave
+    phase = sine_frequency * 2 * np.pi * t / length
+    x_raw = sine_amplitude * np.sin(phase)
     
-    # Initialize coordinate arrays
-    x_center = np.zeros(num_points)
-    y_center = np.zeros(num_points)
-    z_center = np.zeros(num_points)
+    # 2. Create the Taper (6t^5 - 15t^4 + 10t^3)
+    # This ensures smooth acceleration from the straight base
+    t_norm = np.clip(t / transition_end, 0, 1)
+    taper = 6*t_norm**5 - 15*t_norm**4 + 10*t_norm**3
     
-    # Base sinusoidal curve
-    x_upper_base = sine_amplitude * np.sin(sine_frequency * 2 * np.pi * t / length)
-    z_upper_shifted = t + z_offset
-    
-    # Define three regions
-    lower_mask = t <= straight_length
-    upper_mask = t >= z_offset
-    interp_mask = ~(lower_mask | upper_mask)
-    
-    # Lower part: straight
-    z_center[lower_mask] = t[lower_mask]
-    
-    # Upper part: sinusoidal
-    x_center[upper_mask] = x_upper_base[upper_mask]
-    z_center[upper_mask] = z_upper_shifted[upper_mask]
-    
-    # Interpolation region: smooth transition
-    if np.any(interp_mask):
-        t_interp = t[interp_mask]
-        alpha = (t_interp - straight_length) / (z_offset - straight_length)
-        
-        x_upper_start = x_upper_base[interp_mask]
-        z_upper_start = z_upper_shifted[interp_mask]
-        
-        x_center[interp_mask] = alpha * x_upper_start
-        z_center[interp_mask] = (1 - alpha) * straight_length + alpha * z_upper_start
+    x_center = x_raw * taper
+    y_center = np.zeros_like(t)
+    z_center = t 
     
     return x_center, y_center, z_center
-
+    
 
 def _generate_template_centerline(t, length, template_data):
     """
@@ -327,38 +303,53 @@ def get_doublet_centerline(cilia_centerline, angle, shift_distance):
     np.ndarray
         Shifted centerline points for the doublet, shape (n, 3)
     """
-    n_points = len(cilia_centerline)
-    doublet_centerline = np.zeros_like(cilia_centerline)
+    n_original = len(cilia_centerline)
+    
+    # 1. Fit a B-Spline to the input centerline
+    # s=0 ensures we pass exactly through the points, but we gain 
+    # the ability to calculate perfectly smooth derivatives.
+    tck, u = splprep([cilia_centerline[:,0], cilia_centerline[:,1], cilia_centerline[:,2]], s=0)
+    
+    # 2. Sample at very high density (10x) to calculate the shift
+    # This prevents the "kinks" seen in your inner-most doublet.
+    u_fine = np.linspace(0, 1, n_original * 10)
+    points_fine = np.array(splev(u_fine, tck)).T
+    
+    # 3. Calculate Analytical Tangents (1st derivative)
+    derivs = np.array(splev(u_fine, tck, der=1)).T
+    tangents = derivs / np.linalg.norm(derivs, axis=1)[:, np.newaxis]
+    
+    # 4. Construct a Stable Frenet-Serret Frame
+    # Using a fixed reference vector prevents the "flipping" artifacts.
+    up = np.array([0, 1, 0])
+    normals = np.cross(tangents, up)
+    
+    # Safety check for vertical segments
+    norms = np.linalg.norm(normals, axis=1)
+    mask = norms < 1e-6
+    if np.any(mask):
+        normals[mask] = np.cross(tangents[mask], [1, 0, 0])
+    
+    normals /= np.linalg.norm(normals, axis=1)[:, np.newaxis]
+    binormals = np.cross(tangents, normals)
+    
+    # 5. Apply Shift
     angle_rad = np.radians(angle)
+    shift_vec = shift_distance * (np.cos(angle_rad) * normals + np.sin(angle_rad) * binormals)
+    shifted_points_fine = points_fine + shift_vec
     
-    # Calculate tangent vectors at all points
-    tangents = np.gradient(cilia_centerline, axis=0)
-    tangents /= np.linalg.norm(tangents, axis=1)[:, np.newaxis]
-
-    # Reference vector for normal calculation
-    UP_VECTOR = np.array([0.0, 1.0, 0.0])
+    # 6. CRITICAL: Global Arc-Length Resampling
+    # This solves the "crowding" of points on the inward curves.
+    diffs = np.diff(shifted_points_fine, axis=0)
+    step_lengths = np.sqrt(np.sum(diffs**2, axis=1))
+    cumulative_dist = np.concatenate(([0], np.cumsum(step_lengths)))
     
-    for i in range(n_points):
-        tangent = tangents[i]
-        
-        # Calculate normal vector (perpendicular to tangent)
-        normal_est = np.cross(tangent, UP_VECTOR)
-        
-        # Handle case where tangent is parallel to UP_VECTOR
-        if np.linalg.norm(normal_est) < 1e-6:
-            normal_est = np.cross(tangent, np.array([1.0, 0.0, 0.0]))
-        
-        normal = normal_est / np.linalg.norm(normal_est)
-        
-        # Calculate binormal (perpendicular to both tangent and normal)
-        binormal = np.cross(tangent, normal)
-        
-        # Calculate shift vector in the normal-binormal plane
-        shift_vector = shift_distance * (
-            np.cos(angle_rad) * normal + np.sin(angle_rad) * binormal
-        )
-        
-        # Apply shift
-        doublet_centerline[i] = cilia_centerline[i] + shift_vector
+    # Create a new spline of the SHIFTED points
+    tck_shifted, _ = splprep([shifted_points_fine[:,0], 
+                              shifted_points_fine[:,1], 
+                              shifted_points_fine[:,2]], 
+                             u=cumulative_dist, s=0.1) # Small 's' for noise filtering
     
-    return doublet_centerline
+    # Re-sample back to the original point count, but spaced evenly by distance
+    u_final = np.linspace(0, cumulative_dist[-1], n_original)
+    return np.array(splev(u_final, tck_shifted)).T
