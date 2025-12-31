@@ -19,10 +19,7 @@ def _generate_straight_centerline(t):
     tuple
         (x, y, z) coordinate arrays
     """
-    x_center = np.zeros_like(t)
-    y_center = np.zeros_like(t)
-    z_center = t
-    return x_center, y_center, z_center
+    return np.zeros_like(t), np.zeros_like(t), t
 
 
 def _generate_curved_centerline(t, length, curve_radius):
@@ -59,11 +56,9 @@ def _generate_curved_centerline(t, length, curve_radius):
 
 def _generate_sinusoidal_centerline(t, length, sine_frequency, sine_amplitude):
     """
-    Improved sinusoidal generation using a quintic taper for C2 continuity.
-    Creates a centerline with:
-    - Straight section at the base
-    - Smooth transition region
-    - Sinusoidal upper section
+    Improved Sinusoid:
+    1. Quintic taper for 15% straight base (C2 smoothness).
+    2. Numerical integration to ensure TOTAL path length = length.
     
     Parameters:
     -----------
@@ -81,21 +76,36 @@ def _generate_sinusoidal_centerline(t, length, sine_frequency, sine_amplitude):
     tuple
         (x, y, z) coordinate arrays
     """
-    # Transition happens over the first 15% of the length
-    transition_end = length * 0.15
+    # 1. Create a high-resolution temporary z-axis
+    # We use a larger range initially because the sine wave 'eats up' arc length
+    # High-resolution temp axis for length calculation
+    num_fine = max(2000, len(t))
+    z_temp = np.linspace(0, length, num_fine)
     
-    # 1. Calculate the raw sine wave
-    phase = sine_frequency * 2 * np.pi * t / length
-    x_raw = sine_amplitude * np.sin(phase)
+    # 1. Define shape with 15% straight transition
+    phase = sine_frequency * 2 * np.pi * z_temp / length
+    t_norm = np.clip(z_temp / (length * 0.15), 0, 1)
+    taper = 6*t_norm**5 - 15*t_norm**4 + 10*t_norm**3 # Quintic ramp
     
-    # 2. Create the Taper (6t^5 - 15t^4 + 10t^3)
-    # This ensures smooth acceleration from the straight base
-    t_norm = np.clip(t / transition_end, 0, 1)
-    taper = 6*t_norm**5 - 15*t_norm**4 + 10*t_norm**3
+    x_temp = (sine_amplitude * np.sin(phase)) * taper
     
-    x_center = x_raw * taper
+    # 2. Calculate true cumulative arc length (s)
+    dx = np.gradient(x_temp)
+    dz = np.gradient(z_temp)
+    ds = np.sqrt(dx**2 + dz**2)
+    s_accumulated = np.cumsum(ds)
+    s_accumulated -= s_accumulated[0] # Zero the start
+    
+    # 3. Scale structure so the final s matches 'length'
+    scale = length / s_accumulated[-1]
+    x_final = x_temp * scale
+    z_final = z_temp * scale
+    s_final = s_accumulated * scale
+    
+    # 4. Interpolate to uniform t points (0 to length)
+    x_center = np.interp(t, s_final, x_final)
     y_center = np.zeros_like(t)
-    z_center = t 
+    z_center = np.interp(t, s_final, z_final)
     
     return x_center, y_center, z_center
     
@@ -303,53 +313,40 @@ def get_doublet_centerline(cilia_centerline, angle, shift_distance):
     np.ndarray
         Shifted centerline points for the doublet, shape (n, 3)
     """
-    n_original = len(cilia_centerline)
-    
-    # 1. Fit a B-Spline to the input centerline
-    # s=0 ensures we pass exactly through the points, but we gain 
-    # the ability to calculate perfectly smooth derivatives.
+    n_points = len(cilia_centerline)
+    # Fit a B-Spline for analytical derivative calculation
     tck, u = splprep([cilia_centerline[:,0], cilia_centerline[:,1], cilia_centerline[:,2]], s=0)
     
-    # 2. Sample at very high density (10x) to calculate the shift
-    # This prevents the "kinks" seen in your inner-most doublet.
-    u_fine = np.linspace(0, 1, n_original * 10)
+    # Sample at 5x density to ensure the shift vector is calculated smoothly
+    u_fine = np.linspace(0, 1, n_points * 5)
     points_fine = np.array(splev(u_fine, tck)).T
-    
-    # 3. Calculate Analytical Tangents (1st derivative)
     derivs = np.array(splev(u_fine, tck, der=1)).T
-    tangents = derivs / np.linalg.norm(derivs, axis=1)[:, np.newaxis]
     
-    # 4. Construct a Stable Frenet-Serret Frame
-    # Using a fixed reference vector prevents the "flipping" artifacts.
+    # Generate the Frenet-Serret Frame (Tangent, Normal, Binormal)
+    tangents = derivs / np.linalg.norm(derivs, axis=1)[:, np.newaxis]
     up = np.array([0, 1, 0])
     normals = np.cross(tangents, up)
     
-    # Safety check for vertical segments
+    # Safety check for segments aligned with the up-vector
     norms = np.linalg.norm(normals, axis=1)
     mask = norms < 1e-6
-    if np.any(mask):
+    if np.any(mask): 
         normals[mask] = np.cross(tangents[mask], [1, 0, 0])
-    
-    normals /= np.linalg.norm(normals, axis=1)[:, np.newaxis]
+        norms[mask] = np.linalg.norm(normals[mask], axis=1)
+    normals /= norms[:, np.newaxis]
     binormals = np.cross(tangents, normals)
     
-    # 5. Apply Shift
+    # Apply the radial shift
     angle_rad = np.radians(angle)
     shift_vec = shift_distance * (np.cos(angle_rad) * normals + np.sin(angle_rad) * binormals)
-    shifted_points_fine = points_fine + shift_vec
+    shifted_points = points_fine + shift_vec
     
-    # 6. CRITICAL: Global Arc-Length Resampling
-    # This solves the "crowding" of points on the inward curves.
-    diffs = np.diff(shifted_points_fine, axis=0)
-    step_lengths = np.sqrt(np.sum(diffs**2, axis=1))
-    cumulative_dist = np.concatenate(([0], np.cumsum(step_lengths)))
+    # Resample by the arc length of the SHIFTED curve to prevent jagged bunching
+    diffs = np.diff(shifted_points, axis=0)
+    dist = np.concatenate(([0], np.cumsum(np.linalg.norm(diffs, axis=1))))
     
-    # Create a new spline of the SHIFTED points
-    tck_shifted, _ = splprep([shifted_points_fine[:,0], 
-                              shifted_points_fine[:,1], 
-                              shifted_points_fine[:,2]], 
-                             u=cumulative_dist, s=0.1) # Small 's' for noise filtering
+    # Final smoothing (s=0.1) filters out numerical jitter on high-compression inner curves
+    tck_final, _ = splprep([shifted_points[:,0], shifted_points[:,1], shifted_points[:,2]], u=dist, s=0.1)
+    u_final = np.linspace(0, dist[-1], n_points)
     
-    # Re-sample back to the original point count, but spaced evenly by distance
-    u_final = np.linspace(0, cumulative_dist[-1], n_original)
-    return np.array(splev(u_final, tck_shifted)).T
+    return np.array(splev(u_final, tck_final)).T
