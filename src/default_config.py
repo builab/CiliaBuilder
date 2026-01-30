@@ -40,7 +40,7 @@ PRIMARYCILIA_TEMPLATE = 'primarycilia_template.csv'
 
 # 3D printing base
 THREEDPRINT = False
-THREEDPRINT_BASE_HEIGHT = 300
+THREEDPRINT_BASE_HEIGHT = 200
 THREEDPRINT_BASE_RADIUS = 1200
 
 # ============================================================================
