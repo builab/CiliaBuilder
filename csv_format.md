@@ -1,7 +1,6 @@
 # CiliaBuilder CSV Formats
 
-This repository documents the CSV file formats and drawing rules used by **CiliaBuilder** for generating 2D and 3D cilia geometries, including axoneme doublets, central pair microtubules, membrane, cap, cartwheel, and ciliary tip structures.
-
+Internally, CiliaBuilder uses DataFrames to draw store the data for drawing. This can be written out as a CSV file and draw using 3Dtemplate option.
 ---
 
 ## CiliaBuilder 3D CSV Format
