@@ -84,7 +84,7 @@ centriolebuild length 3000
 
 ### Centriole with custom angle offset to match with cilia
 ```bash
-centriolebuild length 2000 centriole_angle_offset 0
+centriolebuild length 2000 centriole_angle_offset 30
 ```
 
 ### Custom triplet configuration

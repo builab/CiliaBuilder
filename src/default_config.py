@@ -41,7 +41,7 @@ PRIMARYCILIA_TEMPLATE = 'primarycilia_template.csv'
 # 3D printing base
 THREEDPRINT = False
 THREEDPRINT_BASE_HEIGHT = 200
-THREEDPRINT_BASE_RADIUS = 1250
+THREEDPRINT_BASE_RADIUS = 1300
 
 # ============================================================================
 # CILIA DEFAULTS (9+2 Configuration)
@@ -104,12 +104,15 @@ CENTRIOLE_LENGTH = 3000  # Total length of centriole structure
 CENTRIOLE_NUM_TRIPLETS = 9  # Number of triplet microtubules
 CENTRIOLE_RADIUS = 875.0  # Radial distance from center to triplet centers
 CENTRIOLE_OFFSET_ANGLE = 30.0  # Angular offset relative to cilia orientation
+CENTRIOLE_DRAW_CARTWHEEL = True # Draw cartwheel or not
 
 # --- Centerline Parameters ---
 CENTRIOLE_LINE = 'straight'  # Options: 'straight', 'curve', 'sinusoidal'
 CENTRIOLE_CURVE_RADIUS = 10000.0  # Radius of curvature for 'curve' centerline type
 CENTRIOLE_SINE_FREQUENCY = 1.0  # Number of oscillations (for 'sinusoidal')
 CENTRIOLE_SINE_AMPLITUDE = 500.0  # Maximum displacement (for 'sinusoidal')
+CENTRIOLE_CARTWHEEL_LENGTH = 1000.0  # Maximum displacement (for 'sinusoidal')
+
 
 # --- Triplet Microtubule Geometry ---
 CENTRIOLE_TRIPLET_A_RADIUS = 125.0  # Outer radius of A-tubule (complete tubule)
@@ -125,3 +128,4 @@ CENTRIOLE_Z_OFFSET_END = 3 * MAX_INTERVAL  # Z-coordinate where centriole end is
 CENTRIOLE_TRIPLET_A_COLOR = (100, 100, 255, 255)  # Blue for A-tubules
 CENTRIOLE_TRIPLET_B_COLOR = (100, 100, 255, 255)  # Blue for B-tubules
 CENTRIOLE_TRIPLET_C_COLOR = (179, 179, 255, 255)  # Light blue for C-tubules
+CENTRIOLE_CARTWHEEL_COLOR = (180, 180, 30, 255)  # Dark yellow for tip cap

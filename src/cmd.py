@@ -18,7 +18,7 @@ from chimerax.core.commands import CmdDesc, IntArg, FloatArg, StringArg, BoolArg
 import pandas as pd
 import numpy as np
 from chimerax.core.models import Surface
-from .draw import draw_tubules, draw_membrane, generate_capsule_surface, draw_ladders
+from .draw import draw_tubules, draw_membrane, generate_capsule_surface, draw_ladders, draw_cartwheel, draw_cartwheel_spoke
 from .geometry.centerline import generate_cilia_structure, get_doublet_centerline
 from .io import read_3d_csv, write_3d_csv, load_template_data
 from .geometry.primarycilia import generate_primary_cilia
@@ -272,7 +272,9 @@ def centriolebuild(session,
                 sine_frequency=default_config.CENTRIOLE_SINE_FREQUENCY,
                 sine_amplitude=default_config.CENTRIOLE_SINE_AMPLITUDE,
                 template_file=default_config.TEMPLATE_FILE,
+                cw_length=default_config.CENTRIOLE_CARTWHEEL_LENGTH,
                 # Centriole Structure Defaults
+                draw_central_pair=default_config.CENTRIOLE_DRAW_CARTWHEEL,
                 num_triplets=default_config.CENTRIOLE_NUM_TRIPLETS,
                 centriole_radius=default_config.CENTRIOLE_RADIUS,
                 centriole_angle_offset=default_config.CILIA_OFFSET_ANGLE - default_config.CENTRIOLE_OFFSET_ANGLE,
@@ -290,6 +292,7 @@ def centriolebuild(session,
                 triplet_a_color=default_config.CENTRIOLE_TRIPLET_A_COLOR,
                 triplet_b_color=default_config.CENTRIOLE_TRIPLET_B_COLOR,
                 triplet_c_color=default_config.CENTRIOLE_TRIPLET_C_COLOR,
+                cartwheel_color=default_config.CENTRIOLE_CARTWHEEL_COLOR,
                 threed_print=default_config.THREEDPRINT
                 ):
     """
@@ -317,8 +320,12 @@ def centriolebuild(session,
                                           Defaults to `default_config.CENTRIOLE_SINE_AMPLITUDE`.
         template_file (str, optional): Filename for the template CSV if `line` is 'template'.
                                        Defaults to `default_config.TEMPLATE_FILE`.
+        cw_length (float, optional): Total length of the centriole cartwheel in Å.
+                                  Defaults to `default_config.CENTRIOLE_CARTWHEEL_LENGTH`.                               
 
         # --- Structure & Alignment Parameters ---
+        draw_central_pair (bool, optional)	: Draw cartwheel or not
+                                      Defaults to `default_config.CENTRIOLE_DRAW_CARTWHEEL`.
         num_triplets (int, optional): The number of microtubule triplets (e.g., 9 for a standard centriole).
                                       Defaults to `default_config.CENTRIOLE_NUM_TRIPLETS`.
         centriole_radius (float, optional): The radius of the centriole barrel (distance from center to A-tubule centerline).
@@ -352,6 +359,8 @@ def centriolebuild(session,
                                            Defaults to `default_config.CENTRIOLE_TRIPLET_B_COLOR`.
         triplet_c_color (tuple, optional): RGBA color tuple for C-tubules.
                                            Defaults to `default_config.CENTRIOLE_TRIPLET_C_COLOR`.
+        cartwheel_color (tuple, optional): RGBA color tuple for CARTWHEEL
+                                           Defaults to `default_config.CENTRIOLE_CARTWHEEL_COLOR`.
 
     Returns:
         ChimeraX.core.models.Model | None: The root ChimeraX Model object containing the generated surfaces, or None if generation failed.
@@ -441,20 +450,41 @@ def centriolebuild(session,
                 -triplet_ab_shift, triplet_ab_shift, triplet_c_shift # A_Shift, B_Shift, C_Shift
             ])
             
+    # 1.1.0
+    # Add cartwheel data (DoubletNumber = -3), reuse draw_central_pair
+    cw_segment_lengths = np.linalg.norm(np.diff(structure['centerline'], axis=0), axis=1)
+    cw_cumulative_length = np.concatenate(([0], np.cumsum(cw_segment_lengths)))
+    cw_end = np.searchsorted(cw_cumulative_length, cw_length, side='right')
+
+    if draw_central_pair:
+        for point in structure['centerline'][:cw_end]:
+            x, y, z = point
+            all_data.append([
+                -3, x, y, z, 
+                1, 0, 0, 
+                num_triplets, # Instead of angle used for numb_doublets
+                0, 0, centriole_radius # A_Shift, B_Shift, C_Shift as centriole_radius
+            ])
+            
     # Create DataFrame
     centriole_data_df = pd.DataFrame(all_data, columns=EXTENDED_COLUMNS)
+    
+    # DEBUG 1.1.0
+    # write_3d_csv(centriole_data_df, "centriole.csv")
+
     
     # --- Centriole Drawing (Now calls _ciliabuild_from_df) ---
     centriole_root = _ciliabuild_from_df(
         session=session,
         df=centriole_data_df,
-        draw_central_pair=False,  # Centrioles typically do not have a central pair
+        draw_central_pair=draw_central_pair,  # Centrioles typically do not have a central pair
         membrane=False,           # Centrioles typically do not have a membrane
         # Doublet parameters are used for A/B, but triplet-specific values are passed
         doublet_a_radius=triplet_a_radius,
         doublet_b_radius=triplet_b_radius,
         doublet_a_color=triplet_a_color,
         doublet_b_color=triplet_b_color,
+        cp_color=cartwheel_color,
         # Triplet-specific C-tubule parameters (used as the 'flag' for Triplet mode)
         triplet_c_radius=triplet_c_radius, 
         triplet_c_color=triplet_c_color,
@@ -640,6 +670,8 @@ centriolebuild_desc = CmdDesc(
         ('sine_frequency', FloatArg),
         ('sine_amplitude', FloatArg),
         ('template_file', StringArg),
+        ('cw_length', FloatArg),
+        ('draw_central_pair', BoolArg),
         ('num_triplets', IntArg),
         ('centriole_radius', FloatArg),
         ('centriole_angle_offset', FloatArg),
@@ -654,6 +686,7 @@ centriolebuild_desc = CmdDesc(
         ('triplet_a_color', Color8Arg),
         ('triplet_b_color', Color8Arg),
         ('triplet_c_color', Color8Arg),
+        ('cartwheel_color', Color8Arg),
         ('threed_print', BoolArg)
     ],
     synopsis='Generate complete centriole structure with triplet microtubules'
@@ -755,6 +788,7 @@ def _ciliabuild_from_df(session, df,
     DoubletNumber Encoding
     ----------------------
     Special values in the DoubletNumber column:
+        -3 : Cartwheel
         -2 : Cap complex (terminal structure for tip geometry)
         -1 : Central pair (C1 and C2 singlet tubules)
          0 : Ciliary membrane
@@ -829,12 +863,16 @@ def _ciliabuild_from_df(session, df,
     # --- GLOBAL STRUCTURE TYPE DETERMINATION ---
     has_c_tubule_column = 'Idx_C' in df.columns
     is_triplet_structure = False
+    # 1.1.0
+    is_cartwheel_structure = False
     
     if has_c_tubule_column:
         # Check if the sum of all Idx_C values across the whole DataFrame is > 0
         if df['Idx_C'].sum() > 0:
             is_triplet_structure = True
             session.logger.info("Global Triplet structure detected (sum(Idx_C) > 0).")
+        is_cartwheel_structure = (df['DoubletNumber'] == -3).any()
+
 
     # Set root name and prefix based on global determination
     if is_triplet_structure:
@@ -990,6 +1028,44 @@ def _ciliabuild_from_df(session, df,
 
         session.models.add_group(cp_surfs, parent=cilia_root, name="Central Pair")
         session.logger.info(f"Added central pair")
+    
+    # 1.1.0
+    cw_data = []
+    if is_cartwheel_structure:
+        cw_data = df[df['DoubletNumber'] == -3]
+    
+    # Reuse the draw_central_pair for cartwheel drawing
+    if draw_central_pair and len(cw_data) > 0:
+        session.logger.info("Drawing cartwheel ...")
+        cw_centerline = cw_data[['X', 'Y', 'Z']].values
+        cw_surfs = []
+        cw_hub = draw_cartwheel(
+            session=session,
+            centerline_points=cw_centerline, 
+            radius=125.0,
+            periodicity=80.0,
+            color=cp_color,
+            name="CentralHub"
+        )
+        if cw_hub is not None:
+            cw_surfs.append(cw_hub)
+            
+        cw_spokes = draw_cartwheel_spoke(
+            session=session,
+            centerline_points=cw_centerline,
+            inner_radius=125.0,
+            outer_radius=cw_data['C_Shift'].iloc[0],
+            number_of_spokes=int(cw_data['Angle'].iloc[0]),
+            spoke_radius=15.0,
+            periodicity=80.0,
+            color=cp_color,
+            name="CartwheelSpokes"
+        )
+        if cw_spokes is not None:
+            cw_surfs.append(cw_spokes)
+
+        session.models.add_group(cw_surfs, parent=cilia_root, name="Cartwheel")
+        session.logger.info(f"Added cartwheel")
             
     # Draw membrane if requested (using DoubletNumber = 0) 
     membrane_data = df[df['DoubletNumber'] == 0]

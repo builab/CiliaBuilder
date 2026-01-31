@@ -1083,3 +1083,352 @@ def draw_ladders(session, centerline_points=None, angle=0.0, periodicity=320.0,
     session.logger.info(f"Generated ladder '{name}' with {len(rung_indices)} rungs")
     
     return surface
+    
+
+def draw_cartwheel(session, centerline_points, radius=125.0, periodicity=80.0,
+                   color=(105, 105, 105, 255), segments=16,
+                   name="CentralHub", add_to_session=False):
+    """
+    Draw periodic torus (donut) structures along a centerline to create a cartwheel pattern.
+    
+    Parameters:
+    -----------
+    session : ChimeraX session
+        Session object
+    centerline_points : np.ndarray
+        Array of shape (n, 3) defining the centerline path
+    radius : float
+        Major radius of each torus (distance from centerline to center of tube)
+    periodicity : float
+        Distance between consecutive tori along centerline
+    color : tuple
+        RGBA color (0-255)
+    segments : int
+        Number of segments for torus geometry (affects smoothness)
+    name : str
+        Base name for the cartwheel structure
+    add_to_session : bool
+        Whether to add to session immediately
+    
+    Returns:
+    --------
+    Surface or None
+        Combined cartwheel surface model
+    """
+    # Validate inputs
+    if centerline_points is None or len(centerline_points) < 2:
+        session.logger.error("Centerline points required for draw_cartwheel")
+        return None
+    
+    if periodicity <= 0:
+        session.logger.error("Periodicity must be positive")
+        return None
+    
+    # Minor radius is half the periodicity (tube thickness of each donut)
+    minor_radius = periodicity / 2.0
+    
+    # Calculate cumulative distance along centerline
+    path_segments = np.linalg.norm(centerline_points[1:] - centerline_points[:-1], axis=1)
+    cumulative_distance = np.insert(np.cumsum(path_segments), 0, 0.0)
+    total_length = cumulative_distance[-1]
+    
+    # Determine torus positions at periodic intervals
+    # Start at minor_radius from the beginning to avoid overlap at the start
+    torus_distances = np.arange(minor_radius, total_length - minor_radius, periodicity)
+    
+    if len(torus_distances) == 0:
+        session.logger.info("No tori drawn (centerline too short for periodicity)")
+        return None
+    
+    # Find indices along centerline for each torus
+    torus_indices = []
+    for dist in torus_distances:
+        idx = np.argmin(np.abs(cumulative_distance - dist))
+        if not torus_indices or idx != torus_indices[-1]:
+            torus_indices.append(idx)
+    
+    # Generate torus geometries
+    torus_geometries = []
+    
+    for idx in torus_indices:
+        center = centerline_points[idx]
+        
+        # Calculate tangent direction at this point
+        if idx == 0:
+            tangent = centerline_points[idx + 1] - centerline_points[idx]
+        elif idx == len(centerline_points) - 1:
+            tangent = centerline_points[idx] - centerline_points[idx - 1]
+        else:
+            tangent = centerline_points[idx + 1] - centerline_points[idx - 1]
+        
+        tangent = tangent / np.linalg.norm(tangent)
+        
+        # Create torus geometry perpendicular to centerline
+        torus_verts, torus_tris = _create_torus_geometry(
+            center=center,
+            axis=tangent,
+            major_radius=radius,
+            minor_radius=minor_radius,
+            major_segments=segments * 2,  # More segments for major circle
+            minor_segments=segments        # Segments for tube cross-section
+        )
+        
+        if torus_verts is not None and torus_verts.shape[0] > 0:
+            torus_geometries.append((torus_verts, torus_tris))
+    
+    if not torus_geometries:
+        session.logger.info("No tori successfully generated")
+        return None
+    
+    # Combine all torus geometries
+    final_vertices, final_triangles = _combine_geometries(torus_geometries)
+    
+    # Create surface
+    surface = Surface(name, session)
+    final_normals = calculate_vertex_normals(final_vertices, final_triangles)
+    surface.set_geometry(final_vertices, final_normals, final_triangles)
+    
+    if color:
+        surface.color = np.array(color, dtype=np.uint8)
+    
+    if add_to_session:
+        session.models.add([surface])
+    
+    session.logger.info(f"Generated cartwheel '{name}' with {len(torus_indices)} tori "
+                       f"(major radius={radius}, minor radius={minor_radius:.1f}, "
+                       f"periodicity={periodicity})")
+    
+    return surface
+
+
+def _create_torus_geometry(center, axis, major_radius, minor_radius, 
+                          major_segments=32, minor_segments=16):
+    """
+    Create vertices and triangles for a torus (donut shape).
+    
+    Parameters:
+    -----------
+    center : np.ndarray
+        Center point of the torus (x, y, z)
+    axis : np.ndarray
+        Axis vector (defines orientation, will be normalized)
+    major_radius : float
+        Distance from center to center of tube
+    minor_radius : float
+        Radius of the tube itself
+    major_segments : int
+        Number of segments around the major circle
+    minor_segments : int
+        Number of segments around the minor circle (tube)
+    
+    Returns:
+    --------
+    vertices : ndarray
+        Vertex positions (N, 3)
+    triangles : ndarray
+        Triangle indices (M, 3)
+    """
+    # Normalize axis
+    axis = axis / np.linalg.norm(axis)
+    
+    # Calculate local coordinate frame perpendicular to axis
+    normal, binormal = _calculate_local_frame(axis)
+    
+    vertices = []
+    
+    # Generate vertices
+    for i in range(major_segments):
+        theta = 2 * np.pi * i / major_segments  # Angle around major circle
+        cos_theta = np.cos(theta)
+        sin_theta = np.sin(theta)
+        
+        # Center of tube circle at this major angle
+        tube_center = center + major_radius * (cos_theta * normal + sin_theta * binormal)
+        
+        # Direction pointing outward from torus center to tube center
+        radial_dir = cos_theta * normal + sin_theta * binormal
+        
+        for j in range(minor_segments):
+            phi = 2 * np.pi * j / minor_segments  # Angle around minor circle (tube)
+            cos_phi = np.cos(phi)
+            sin_phi = np.sin(phi)
+            
+            # Offset from tube center
+            offset = minor_radius * (cos_phi * radial_dir + sin_phi * axis)
+            
+            vertex = tube_center + offset
+            vertices.append(vertex)
+    
+    vertices = np.array(vertices, dtype=np.float32)
+    
+    # Generate triangles
+    triangles = []
+    for i in range(major_segments):
+        for j in range(minor_segments):
+            # Current vertex indices
+            current = i * minor_segments + j
+            next_major = ((i + 1) % major_segments) * minor_segments + j
+            next_minor = i * minor_segments + (j + 1) % minor_segments
+            next_both = ((i + 1) % major_segments) * minor_segments + (j + 1) % minor_segments
+            
+            # Two triangles per quad
+            triangles.append([current, next_major, next_minor])
+            triangles.append([next_minor, next_major, next_both])
+    
+    triangles = np.array(triangles, dtype=np.int32)
+    
+    return vertices, triangles
+
+    
+def draw_cartwheel_spoke(session, centerline_points, inner_radius=125.0, outer_radius=875.0,
+                        number_of_spokes=9, spoke_radius=15.0, periodicity=80.0, angle_offset=-5,
+                        color=(105, 105, 105, 255), segments=16,
+                        name="CartwheelSpokes", add_to_session=False):
+    """
+    Draw radial spokes extending from inner_radius to outer_radius at regular intervals
+    along the centerline, creating a cartwheel spoke pattern.
+    
+    Parameters:
+    -----------
+    session : ChimeraX session
+        Session object
+    centerline_points : np.ndarray
+        Array of shape (n, 3) defining the centerline path
+    inner_radius : float
+        Starting radius for spokes (distance from centerline)
+    outer_radius : float
+        Ending radius for spokes (distance from centerline)
+    number_of_spokes : int
+        Number of spokes per cartwheel level (distributed evenly in 360°)
+    spoke_radius : float
+        Radius/thickness of each spoke tube
+    periodicity : float
+        Distance between consecutive spoke levels along centerline
+    angle_offset : float
+        Offset to make it align with A-tubule
+    color : tuple
+        RGBA color (0-255)
+    segments : int
+        Number of segments for spoke tube geometry
+    name : str
+        Base name for the spoke structure
+    add_to_session : bool
+        Whether to add to session immediately
+    
+    Returns:
+    --------
+    Surface or None
+        Combined spoke surface model
+    """
+    # Validate inputs
+    if centerline_points is None or len(centerline_points) < 2:
+        session.logger.error("Centerline points required for draw_cartwheel_spoke")
+        return None
+    
+    if periodicity <= 0:
+        session.logger.error("Periodicity must be positive")
+        return None
+    
+    if number_of_spokes < 1:
+        session.logger.error("Number of spokes must be at least 1")
+        return None
+    
+    if inner_radius >= outer_radius:
+        session.logger.error("Inner radius must be less than outer radius")
+        return None
+    
+    # Calculate cumulative distance along centerline
+    path_segments = np.linalg.norm(centerline_points[1:] - centerline_points[:-1], axis=1)
+    cumulative_distance = np.insert(np.cumsum(path_segments), 0, 0.0)
+    total_length = cumulative_distance[-1]
+    
+    # Use the same offset as draw_cartwheel: periodicity/2
+    # This ensures spokes align with the cartwheel rings
+    offset = periodicity / 2.0
+    
+    # Determine spoke level positions at periodic intervals
+    spoke_level_distances = np.arange(offset, total_length - offset, periodicity)
+    
+    if len(spoke_level_distances) == 0:
+        session.logger.info("No spoke levels drawn (centerline too short for periodicity)")
+        return None
+    
+    # Find indices along centerline for each spoke level
+    spoke_level_indices = []
+    for dist in spoke_level_distances:
+        idx = np.argmin(np.abs(cumulative_distance - dist))
+        if not spoke_level_indices or idx != spoke_level_indices[-1]:
+            spoke_level_indices.append(idx)
+    
+    # Calculate angular positions for spokes
+    spoke_angles = np.linspace(0, 2 * np.pi, number_of_spokes, endpoint=False) + angle_offset*np.pi/180
+    
+    # Generate spoke geometries
+    spoke_geometries = []
+    
+    for idx in spoke_level_indices:
+        center = centerline_points[idx]
+        
+        # Calculate tangent direction at this point (axis of the cartwheel)
+        if idx == 0:
+            tangent = centerline_points[idx + 1] - centerline_points[idx]
+        elif idx == len(centerline_points) - 1:
+            tangent = centerline_points[idx] - centerline_points[idx - 1]
+        else:
+            tangent = centerline_points[idx + 1] - centerline_points[idx - 1]
+        
+        tangent = tangent / np.linalg.norm(tangent)
+        
+        # Get local coordinate frame perpendicular to centerline
+        normal, binormal = _calculate_local_frame(tangent)
+        
+        # Create spokes at each angular position
+        for angle in spoke_angles:
+            cos_angle = np.cos(angle)
+            sin_angle = np.sin(angle)
+            
+            # Direction for this spoke (in the plane perpendicular to centerline)
+            spoke_direction = cos_angle * normal + sin_angle * binormal
+            
+            # Start and end points of spoke
+            start_point = center + inner_radius * spoke_direction
+            end_point = center + outer_radius * spoke_direction
+            
+            # Create spoke centerline
+            spoke_centerline = np.array([start_point, end_point], dtype=np.float32)
+            
+            # Create spoke tube geometry
+            spoke_verts, spoke_tris = _create_tube_geometry(
+                spoke_centerline,
+                radius=spoke_radius,
+                segments=segments,
+                capped=True
+            )
+            
+            if spoke_verts is not None and spoke_verts.shape[0] > 0:
+                spoke_geometries.append((spoke_verts, spoke_tris))
+    
+    if not spoke_geometries:
+        session.logger.info("No spokes successfully generated")
+        return None
+    
+    # Combine all spoke geometries
+    final_vertices, final_triangles = _combine_geometries(spoke_geometries)
+    
+    # Create surface
+    surface = Surface(name, session)
+    final_normals = calculate_vertex_normals(final_vertices, final_triangles)
+    surface.set_geometry(final_vertices, final_normals, final_triangles)
+    
+    if color:
+        surface.color = np.array(color, dtype=np.uint8)
+    
+    if add_to_session:
+        session.models.add([surface])
+    
+    total_spokes = len(spoke_level_indices) * number_of_spokes
+    session.logger.info(f"Generated cartwheel spokes '{name}' with {len(spoke_level_indices)} levels, "
+                       f"{number_of_spokes} spokes per level ({total_spokes} total spokes), "
+                       f"from radius {inner_radius} to {outer_radius}")
+    
+    return surface

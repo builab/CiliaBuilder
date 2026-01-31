@@ -131,11 +131,13 @@ class CiliaBuilder(ToolInstance):
         self.sine_freq_label = QLabel("Sine Frequency:")
         sine_h_layout.addWidget(self.sine_freq_label)
         self.sine_frequency_input = QLineEdit(str(default_config.CILIA_SINE_FREQUENCY)) 
+        self.sine_frequency_input.setMaximumWidth(120)
         sine_h_layout.addWidget(self.sine_frequency_input)
         
         self.sine_amp_label = QLabel("Amplitude (Å):")
         sine_h_layout.addWidget(self.sine_amp_label)
         self.sine_amplitude_input = QLineEdit(str(default_config.CILIA_SINE_AMPLITUDE)) 
+        self.sine_amplitude_input.setMaximumWidth(120)
         sine_h_layout.addWidget(self.sine_amplitude_input)
         
         general_layout.addWidget(self.sine_controls_widget, 7, 0, 1, 2)
@@ -154,17 +156,12 @@ class CiliaBuilder(ToolInstance):
 
         # Row 0: Cilia Tubule Colors
         cilia_color_h_layout = QHBoxLayout()
-        cilia_color_h_layout.addWidget(QLabel("A-tubule:"))
+        cilia_color_h_layout.addWidget(QLabel("Doublet Color:"))
         self.cilia_a_color_input = QLineEdit(color_to_string(default_config.CILIA_DOUBLET_A_COLOR))
         self.cilia_a_color_input.setMaximumWidth(120)
         cilia_color_h_layout.addWidget(self.cilia_a_color_input)
-        
-        cilia_color_h_layout.addWidget(QLabel("B-tubule:"))
-        self.cilia_b_color_input = QLineEdit(color_to_string(default_config.CILIA_DOUBLET_B_COLOR))
-        self.cilia_b_color_input.setMaximumWidth(120)
-        cilia_color_h_layout.addWidget(self.cilia_b_color_input)
-        
-        cilia_color_h_layout.addWidget(QLabel("C1/C2:"))
+                
+        cilia_color_h_layout.addWidget(QLabel("Central Pair Color:"))
         self.cilia_cp_color_input = QLineEdit(color_to_string(default_config.CILIA_CP_COLOR))
         self.cilia_cp_color_input.setMaximumWidth(120)
         cilia_color_h_layout.addWidget(self.cilia_cp_color_input)
@@ -173,7 +170,7 @@ class CiliaBuilder(ToolInstance):
         
         # Row 1: Draw Central Pair and Draw Membrane
         draw_h_layout = QHBoxLayout()
-        self.draw_cp_check = QCheckBox("Draw Central Pair (C1/C2)")
+        self.draw_cp_check = QCheckBox("Draw Central Pair ")
         self.draw_cp_check.setChecked(default_config.CILIA_DRAW_CENTRAL_PAIR)
         draw_h_layout.addWidget(self.draw_cp_check)
         
@@ -188,25 +185,27 @@ class CiliaBuilder(ToolInstance):
         length_diff_h_layout.addWidget(QLabel("A-B Diff (Å):"))
         self.cilia_doublet_length_diff_input = QLineEdit(str(default_config.CILIA_DOUBLET_LENGTH_DIFF))
         self.cilia_doublet_length_diff_input.setToolTip("A-tubule minus B-tubule length")
-        self.cilia_doublet_length_diff_input.setMaximumWidth(100)
+        self.cilia_doublet_length_diff_input.setMaximumWidth(120)
         length_diff_h_layout.addWidget(self.cilia_doublet_length_diff_input)
 
         length_diff_h_layout.addWidget(QLabel("CP-Doublet Diff (Å):"))
         self.cilia_cp_doublet_length_diff_input = QLineEdit(str(default_config.CILIA_CP_DOUBLET_LENGTH_DIFF))
         self.cilia_cp_doublet_length_diff_input.setToolTip("CP minus doublet A-tubule length (positive = CP longer)")
-        self.cilia_cp_doublet_length_diff_input.setMaximumWidth(100)
+        self.cilia_cp_doublet_length_diff_input.setMaximumWidth(120)
         length_diff_h_layout.addWidget(self.cilia_cp_doublet_length_diff_input)
 
         cilia_layout.addLayout(length_diff_h_layout, 2, 0, 1, 2)
         
         # Row 3: Membrane Parameters
         membrane_param_h_layout = QHBoxLayout()
-        membrane_param_h_layout.addWidget(QLabel("Membrane Radius (Å):"))
+        membrane_param_h_layout.addWidget(QLabel("Memb. Radius (Å):"))
         self.membrane_radius_input = QLineEdit(str(default_config.CILIA_MEMBRANE_RADIUS))
+        self.membrane_radius_input.setMaximumWidth(120)
         membrane_param_h_layout.addWidget(self.membrane_radius_input)
 
         membrane_param_h_layout.addWidget(QLabel("Fraction (0-1):"))
         self.membrane_fraction_input = QLineEdit(str(default_config.CILIA_MEMBRANE_FRACTION))
+        self.membrane_fraction_input.setMaximumWidth(120)
         membrane_param_h_layout.addWidget(self.membrane_fraction_input)
         
         cilia_layout.addLayout(membrane_param_h_layout, 3, 0, 1, 2)
@@ -219,39 +218,48 @@ class CiliaBuilder(ToolInstance):
         self.centriole_group = QGroupBox("Centriole-Specific Parameters (9x3)")
         centriole_layout = QGridLayout()
         
-        # Row 0: Centriole Tubule Colors
+        # Row 0: Simplified Centriole Colors (only 2 color boxes)
         centriole_color_h_layout = QHBoxLayout()
-        centriole_color_h_layout.addWidget(QLabel("A-tubule:"))
-        self.centriole_a_color_input = QLineEdit(color_to_string(default_config.CENTRIOLE_TRIPLET_A_COLOR))
-        self.centriole_a_color_input.setMaximumWidth(120)
-        centriole_color_h_layout.addWidget(self.centriole_a_color_input)
+        centriole_color_h_layout.addWidget(QLabel("Triplet Color:"))
+        self.centriole_triplet_color_input = QLineEdit("100,100,255,255")
+        self.centriole_triplet_color_input.setMaximumWidth(120)
+        centriole_color_h_layout.addWidget(self.centriole_triplet_color_input)
         
-        centriole_color_h_layout.addWidget(QLabel("B-tubule:"))
-        self.centriole_b_color_input = QLineEdit(color_to_string(default_config.CENTRIOLE_TRIPLET_B_COLOR))
-        self.centriole_b_color_input.setMaximumWidth(120)
-        centriole_color_h_layout.addWidget(self.centriole_b_color_input)
-        
-        centriole_color_h_layout.addWidget(QLabel("C-tubule:"))
-        self.centriole_c_color_input = QLineEdit(color_to_string(default_config.CENTRIOLE_TRIPLET_C_COLOR))
-        self.centriole_c_color_input.setMaximumWidth(120)
-        centriole_color_h_layout.addWidget(self.centriole_c_color_input)
+        centriole_color_h_layout.addWidget(QLabel("Cartwheel Color:"))
+        self.centriole_cartwheel_color_input = QLineEdit("255,255,100,255")
+        self.centriole_cartwheel_color_input.setMaximumWidth(120)
+        centriole_color_h_layout.addWidget(self.centriole_cartwheel_color_input)
         
         centriole_layout.addLayout(centriole_color_h_layout, 0, 0, 1, 2)
         
-        # Row 1: Centriole Angle Offset
-        centriole_layout.addWidget(QLabel("Triplet Angle Offset (°):"), 1, 0)
-        self.centriole_angle_offset_input = QLineEdit(str(default_config.CENTRIOLE_OFFSET_ANGLE)) 
-        centriole_layout.addWidget(self.centriole_angle_offset_input, 1, 1)
-
-        # Row 2: Triplet B-Length Difference
-        centriole_layout.addWidget(QLabel("B Length Diff (Å):"), 2, 0)
-        self.centriole_b_length_diff_input = QLineEdit(str(default_config.CENTRIOLE_TRIPLET_B_LENGTH_DIFF))
-        centriole_layout.addWidget(self.centriole_b_length_diff_input, 2, 1)
+        # Row 1: Draw Cartwheel checkbox and Cartwheel Length
+        cartwheel_h_layout = QHBoxLayout()
+        self.draw_cartwheel_check = QCheckBox("Draw Cartwheel    ")
+        self.draw_cartwheel_check.setChecked(default_config.CENTRIOLE_DRAW_CARTWHEEL)
+        cartwheel_h_layout.addWidget(self.draw_cartwheel_check)
         
-        # Row 3: Triplet C-Length Difference
-        centriole_layout.addWidget(QLabel("C Length Diff (Å):"), 3, 0)
+        cartwheel_h_layout.addWidget(QLabel("     Cartwheel Length (Å):"))
+        self.centriole_cw_length_input = QLineEdit(str(default_config.CENTRIOLE_CARTWHEEL_LENGTH))
+        self.centriole_cw_length_input.setMaximumWidth(120)
+        cartwheel_h_layout.addWidget(self.centriole_cw_length_input)
+        cartwheel_h_layout.addStretch()
+        
+        centriole_layout.addLayout(cartwheel_h_layout, 1, 0, 1, 2)
+        
+        # Row 2: Centriole Angle Offset
+        centriole_layout.addWidget(QLabel("Triplet Angle Offset:"), 2, 0)
+        self.centriole_angle_offset_input = QLineEdit(str(default_config.CENTRIOLE_OFFSET_ANGLE)) 
+        centriole_layout.addWidget(self.centriole_angle_offset_input, 2, 1)
+
+        # Row 3: Triplet B-Length Difference
+        centriole_layout.addWidget(QLabel("B Length Diff (Å):"), 3, 0)
+        self.centriole_b_length_diff_input = QLineEdit(str(default_config.CENTRIOLE_TRIPLET_B_LENGTH_DIFF))
+        centriole_layout.addWidget(self.centriole_b_length_diff_input, 3, 1)
+        
+        # Row 4: Triplet C-Length Difference
+        centriole_layout.addWidget(QLabel("C Length Diff (Å):"), 4, 0)
         self.centriole_c_length_diff_input = QLineEdit(str(default_config.CENTRIOLE_TRIPLET_C_LENGTH_DIFF))
-        centriole_layout.addWidget(self.centriole_c_length_diff_input, 3, 1)
+        centriole_layout.addWidget(self.centriole_c_length_diff_input, 4, 1)
         
         self.centriole_group.setLayout(centriole_layout)
         main_layout.addWidget(self.centriole_group)
@@ -338,7 +346,7 @@ class CiliaBuilder(ToolInstance):
             
         else:
             # Centriole updated options: 'template' removed
-            self.line_type_combo.addItems(['straight', 'curve', 'sinusoidal'])
+            self.line_type_combo.addItems(['straight', 'curve'])
             self.radius_label.setText("Centriole Radius (Å):")
             self.count_label.setText("Number of Triplets:")
             
@@ -351,7 +359,7 @@ class CiliaBuilder(ToolInstance):
             self.sine_amplitude_input.setText(str(default_config.CENTRIOLE_SINE_AMPLITUDE))
             
             # Restore line type if valid for centriole (excluding 'tip' and 'template' options)
-            valid_centriole_lines = ['straight', 'curve', 'sinusoidal']
+            valid_centriole_lines = ['straight', 'curve']
             if current_line in valid_centriole_lines:
                 self.line_type_combo.setCurrentText(current_line)
             else:
@@ -458,7 +466,6 @@ class CiliaBuilder(ToolInstance):
             if is_cilia:
                 # Parse Cilia colors and other parameters needed for both generation methods
                 cilia_a_color = self._parse_color(self.cilia_a_color_input.text())
-                cilia_b_color = self._parse_color(self.cilia_b_color_input.text())
                 cilia_cp_color = self._parse_color(self.cilia_cp_color_input.text())
                 
                 draw_central_pair = self.draw_cp_check.isChecked()
@@ -486,7 +493,7 @@ class CiliaBuilder(ToolInstance):
                         cp_radius=default_config.CILIA_CP_RADIUS,
                         # Pass colors
                         doublet_a_color=cilia_a_color,
-                        doublet_b_color=cilia_b_color,
+                        doublet_b_color=cilia_a_color,
                         cp_color=cilia_cp_color,
                         membrane_color=default_config.CILIA_MEMBRANE_COLOR, # Use default as it's not exposed
                         threed_print=threed_print # ADDED
@@ -499,7 +506,7 @@ class CiliaBuilder(ToolInstance):
                     if centerline_type == '2Dtemplate' and not template_file:
                         raise ValueError("Template file path is required when line type is '2Dtemplate'.")
 
-                    self.session.logger.info(f"Cilia colors - A: {cilia_a_color}, B: {cilia_b_color}, CP: {cilia_cp_color}")
+                    self.session.logger.info(f"Cilia colors - A: {cilia_a_color}, B: {cilia_a_color}, CP: {cilia_cp_color}")
                     
                     doublet_length_diff = float(self.cilia_doublet_length_diff_input.text())
                     cp_doublet_length_diff = float(self.cilia_cp_doublet_length_diff_input.text())
@@ -524,7 +531,7 @@ class CiliaBuilder(ToolInstance):
                         doublet_length_diff=doublet_length_diff,
                         cp_doublet_length_diff=cp_doublet_length_diff,
                         doublet_a_color=cilia_a_color,
-                        doublet_b_color=cilia_b_color,
+                        doublet_b_color=cilia_a_color,
                         cp_color=cilia_cp_color,
                         threed_print=threed_print # ADDED
                     )
@@ -532,17 +539,20 @@ class CiliaBuilder(ToolInstance):
             else:
                 # --- CENTRIOLE Logic - Call centriolebuild ---
                 
-                # Parse centriole colors
-                centriole_a_color = self._parse_color(self.centriole_a_color_input.text())
-                centriole_b_color = self._parse_color(self.centriole_b_color_input.text())
-                centriole_c_color = self._parse_color(self.centriole_c_color_input.text())
+                # Parse centriole colors (simplified to one triplet color and one cartwheel color)
+                centriole_triplet_color = self._parse_color(self.centriole_triplet_color_input.text())
+                centriole_cartwheel_color = self._parse_color(self.centriole_cartwheel_color_input.text())
                 
-                self.session.logger.info(f"Centriole colors - A: {centriole_a_color}, B: {centriole_b_color}, C: {centriole_c_color}")
+                self.session.logger.info(f"Centriole colors - Triplet: {centriole_triplet_color}, Cartwheel: {centriole_cartwheel_color}")
                 
                 # Centriole-specific inputs
                 angle_offset = default_config.CILIA_OFFSET_ANGLE - float(self.centriole_angle_offset_input.text())
                 b_length_diff = float(self.centriole_b_length_diff_input.text())
                 c_length_diff = float(self.centriole_c_length_diff_input.text())
+                
+                # Get cartwheel parameters
+                draw_cartwheel = self.draw_cartwheel_check.isChecked()
+                cw_length = float(self.centriole_cw_length_input.text())
                 
                 # Call the command function and get the returned model, passing threed_print
                 new_model = centriolebuild(
@@ -553,14 +563,17 @@ class CiliaBuilder(ToolInstance):
                     sine_frequency=sine_frequency,
                     sine_amplitude=sine_amplitude,
                     template_file=template_file,
+                    cw_length=cw_length,
+                    draw_central_pair=draw_cartwheel,
                     num_triplets=num_units,
                     centriole_radius=ring_radius,
                     centriole_angle_offset=angle_offset,
                     triplet_b_length_diff=b_length_diff,
                     triplet_c_length_diff=c_length_diff,
-                    triplet_a_color=centriole_a_color,
-                    triplet_b_color=centriole_b_color,
-                    triplet_c_color=centriole_c_color,
+                    triplet_a_color=centriole_triplet_color,
+                    triplet_b_color=centriole_triplet_color,
+                    triplet_c_color=centriole_triplet_color,
+                    cartwheel_color=centriole_cartwheel_color,
                     threed_print=threed_print # ADDED
                 )
             
