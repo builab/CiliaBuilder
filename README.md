@@ -100,5 +100,7 @@ Use this [Colab Notebook](https://colab.research.google.com/drive/18XwT8Y2a-_uJx
 
 [Example image](example/cilia_image.png) to test
 
+## CSV format and drawing setting
+[CSV format documentation](csv_format.md)
 
 
