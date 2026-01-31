@@ -1,7 +1,7 @@
 # CiliaBuilder CSV Formats
 
 
-Internally, CiliaBuilder uses DataFrames to draw store the data for drawing. This can be written out as a CSV file and draw using 3Dtemplate option.
+Internally, CiliaBuilder uses DataFrames to store the data for drawing. This can be written out as a CSV file and draw using 3Dtemplate option.
 
 ---
 
