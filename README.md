@@ -26,6 +26,9 @@ Open *Tools > High-order structure > Cilia Builder*
 [![Screenshot](example/CiliaBuilder_screenshot.png)](example/CiliaBuilder_screenshot.png)
 
 
+[![Screenshot](example/CiliaBuilder_centriole.png)](example/CiliaBuilder_centriole.png)
+
+
 ### Video Tutorial
 
 [![Build Cilia](https://img.youtube.com/vi/SJHoQg4RiXQ/hqdefault.jpg)](https://youtu.be/SJHoQg4RiXQ)
