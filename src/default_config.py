@@ -41,7 +41,7 @@ PRIMARYCILIA_TEMPLATE = 'primarycilia_template.csv'
 # 3D printing base
 THREEDPRINT = False
 THREEDPRINT_BASE_HEIGHT = 200
-THREEDPRINT_BASE_RADIUS = 1300
+THREEDPRINT_BASE_RADIUS = 1300 # Default 1300, perhaps 1400 for curved one
 
 # ============================================================================
 # CILIA DEFAULTS (9+2 Configuration)
